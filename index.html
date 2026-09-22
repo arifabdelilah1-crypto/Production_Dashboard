@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>CI Production Dashboard — Molding &amp; Assy</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
@@ -14,34 +14,62 @@
   }
   *{box-sizing:border-box;}
   body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);}
-  header{padding:18px 24px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg);z-index:10;}
-  header h1{font-size:19px;margin:0;font-weight:600;}
-  header .sub{color:var(--muted);font-size:12px;margin-top:2px;}
-  .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+
+  #loginScreen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px;}
+  #loginBox{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:32px 28px;width:100%;max-width:340px;text-align:center;}
+  #loginBox h2{margin:0 0 6px;font-size:18px;}
+  #loginBox p{color:var(--muted);font-size:12.5px;margin:0 0 18px;}
+  #loginBox input{width:100%;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:11px 12px;font-size:15px;margin-bottom:10px;}
+  #loginBox button{width:100%;background:var(--accent);color:#04263d;font-weight:700;border:none;border-radius:8px;padding:11px;font-size:14px;cursor:pointer;}
+  #loginErr{color:var(--red);font-size:12.5px;min-height:16px;margin-top:8px;}
+  #app{display:none;}
+
+  header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg);z-index:10;}
+  header h1{font-size:18px;margin:0;font-weight:600;}
+  header .sub{color:var(--muted);font-size:11.5px;margin-top:2px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .pill{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;}
+  .pill.live{background:#14532d;color:#4ade80;}
+  .pill.dead{background:#450a0a;color:#f87171;}
+  .dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+  .controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
   select,button{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer;}
   button:hover{border-color:var(--accent);}
   button.primary{background:var(--accent);color:#04263d;font-weight:600;border:none;}
-  #status{font-size:12px;color:var(--muted);}
+  button.ghost{background:transparent;}
+  #status{font-size:11.5px;color:var(--muted);}
   #status.err{color:var(--red);}
   #status.ok{color:var(--green);}
-  main{padding:20px 24px;max-width:1400px;margin:0 auto;}
-  .banner{background:#3b2f0f;border:1px solid #7c5e12;color:#fcd34d;padding:10px 14px;border-radius:8px;margin-bottom:16px;font-size:13px;display:none;}
-  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;}
-  .kpi{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
-  .kpi .label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
-  .kpi .value{font-size:24px;font-weight:700;margin-top:4px;}
-  .grid2{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px;}
-  .grid3{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
-  @media(max-width:900px){.grid2,.grid3{grid-template-columns:1fr;}}
-  .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px;}
-  .panel h2{font-size:14px;margin:0 0 12px;font-weight:600;color:var(--text);}
-  .panel-h{color:var(--muted);}
-  table{width:100%;border-collapse:collapse;font-size:12.5px;}
-  th,td{padding:7px 8px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;}
+  main{padding:18px 20px 40px;max-width:1440px;margin:0 auto;}
+  .banner{background:#3b2f0f;border:1px solid #7c5e12;color:#fcd34d;padding:10px 14px;border-radius:8px;margin-bottom:16px;font-size:13px;}
+  .alertsPanel{background:#3f0d0d;border:1px solid #7c1d1d;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:12.5px;display:none;}
+  .alertsPanel h3{margin:0 0 8px;font-size:13px;color:#fca5a5;}
+  .alertsPanel .row{display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px solid #5c1a1a;color:#fecaca;}
+  .alertsPanel .row:last-child{border-bottom:none;}
+
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:18px;}
+  .kpi{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:13px 15px;}
+  .kpi .label{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+  .kpi .value{font-size:22px;font-weight:700;margin-top:4px;}
+  .kpi .value.warn{color:var(--orange);}
+  .kpi .value.bad{color:var(--red);}
+  .kpi .value.good{color:var(--green);}
+
+  .grid2{display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:14px;}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px;}
+  @media(max-width:1000px){.grid3{grid-template-columns:1fr 1fr;}}
+  @media(max-width:760px){.grid2,.grid3{grid-template-columns:1fr;}header{padding:12px 14px;}main{padding:14px 14px 32px;}.controls{width:100%;}.controls select,.controls button{flex:1;min-width:0;}}
+
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;min-width:0;}
+  .panel h2{font-size:13.5px;margin:0 0 10px;font-weight:600;color:var(--text);}
+  .panel-h{color:var(--muted);font-weight:400;}
+  .panel canvas{max-height:230px;}
+
+  table{width:100%;border-collapse:collapse;font-size:12px;}
+  th,td{padding:6px 8px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;}
   th{color:var(--muted);font-weight:600;position:sticky;top:0;background:var(--panel);cursor:pointer;user-select:none;}
   tbody tr:hover{background:var(--panel2);}
-  .tablewrap{max-height:420px;overflow:auto;}
-  .badge{padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;}
+  .tablewrap{max-height:400px;overflow:auto;-webkit-overflow-scrolling:touch;}
+  .badge{padding:2px 8px;border-radius:20px;font-size:10.5px;font-weight:600;white-space:nowrap;}
   .b-done{background:#14532d;color:#4ade80;}
   .b-ongoing{background:#1e3a5f;color:#60a5fa;}
   .b-planned{background:#3f3f46;color:#d4d4d8;}
@@ -50,53 +78,75 @@
   .b-unfinished{background:#422006;color:#fbbf24;}
   .b-notstarted{background:#312e81;color:#a5b4fc;}
   .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
-  input[type=text]{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;font-size:13px;min-width:180px;}
-  .attn{font-size:12px;color:var(--orange);font-weight:600;}
+  input[type=text]{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;font-size:13px;min-width:160px;flex:1;}
+  .attn{font-size:11.5px;color:var(--orange);white-space:normal;}
+  @media(max-width:600px){.filters input,.filters select{width:100%;flex:none;}}
 </style>
 </head>
 <body>
 
+<div id="loginScreen">
+  <div id="loginBox">
+    <h2>🔒 CI Dashboard</h2>
+    <p>Enter the access password to view live production data.</p>
+    <input type="password" id="pwInput" placeholder="Password" autocomplete="current-password">
+    <button class="primary" id="pwBtn">Unlock</button>
+    <div id="loginErr"></div>
+  </div>
+</div>
+
+<div id="app">
 <header>
   <div>
     <h1>CI Production Dashboard — Molding &amp; Assy</h1>
-    <div class="sub">Live from Google Sheets · <span id="lastUpdated">not loaded yet</span></div>
+    <div class="sub">
+      <span id="connPill" class="pill live"><span class="dot"></span>live</span>
+      <span id="lastUpdated">not loaded yet</span>
+      <span id="countdown"></span>
+    </div>
   </div>
   <div class="controls">
     <select id="weekSelect"></select>
-    <button class="primary" id="refreshBtn">⟳ Refresh now</button>
+    <button class="primary" id="refreshBtn">⟳ Refresh</button>
+    <button class="ghost" id="logoutBtn">Log out</button>
     <span id="status"></span>
   </div>
 </header>
 
 <main>
-  <div class="banner" id="banner"></div>
+  <div class="banner" id="banner" style="display:none;"></div>
+  <div class="alertsPanel" id="alertsPanel"><h3>⚠ New since last refresh</h3><div id="alertsList"></div></div>
 
   <div class="kpis" id="kpis"></div>
 
   <div class="grid2">
     <div class="panel">
-      <h2>Daily Output vs Combined Objective</h2>
-      <canvas id="dailyChart" height="110"></canvas>
+      <h2>Daily Output vs Combined Objective <span class="panel-h">— by area</span></h2>
+      <canvas id="dailyChart"></canvas>
     </div>
     <div class="panel">
       <h2>Status Breakdown</h2>
-      <canvas id="statusChart" height="110"></canvas>
+      <canvas id="statusChart"></canvas>
     </div>
   </div>
 
   <div class="grid3">
     <div class="panel">
       <h2>Attainment by Area</h2>
-      <canvas id="areaChart" height="130"></canvas>
+      <canvas id="areaChart"></canvas>
     </div>
     <div class="panel">
       <h2>Worst 10 — Attainment %</h2>
-      <canvas id="worstChart" height="130"></canvas>
+      <canvas id="worstChart"></canvas>
+    </div>
+    <div class="panel">
+      <h2>Priority Mix <span class="panel-h">— active lines</span></h2>
+      <canvas id="prioChart"></canvas>
     </div>
   </div>
 
-  <div class="panel" style="margin-bottom:16px;">
-    <h2>Needs CI Attention <span class="panel-h">— open comments or non-Done/Canceled lines, sorted by priority</span></h2>
+  <div class="panel" style="margin-bottom:14px;">
+    <h2>Needs CI Attention <span class="panel-h">— open comments or non-Done/Canceled, sorted by priority</span></h2>
     <div class="tablewrap">
       <table id="attnTable">
         <thead><tr><th>Area</th><th>PN / IMM</th><th>Project</th><th>Status</th><th>Prio</th><th>Attain%</th><th>Comment</th></tr></thead>
@@ -119,27 +169,27 @@
           <th data-k="area">Area</th><th data-k="pn">PN / IMM</th><th data-k="project">Project</th>
           <th data-k="status">Status</th><th data-k="prio">Prio</th><th data-k="attain">Attain%</th>
           <th data-k="planned">Planned</th><th data-k="produced">Produced</th><th data-k="remaining">Remaining</th>
-          <th data-k="ct">CT(s)</th><th data-k="dailyObj">Daily Obj</th><th data-k="comment">Comment</th>
+          <th data-k="ct">CT(s)</th><th data-k="dailyObj">Daily Obj</th><th data-k="oee">OEE</th><th data-k="comment">Comment</th>
         </tr></thead>
         <tbody></tbody>
       </table>
     </div>
   </div>
 </main>
+</div>
 
 <script>
 /* ======================= CONFIG ======================= */
-// Google Sheet ID (from the sheet's URL)
 const SHEET_ID = "1X22404pVovt1IVolZHzq0aQ5D2KbFzZAD0M-NUpvs3Q";
-
-// Tab names to pull, newest last. Add a new week here the day you create its tab —
-// nothing else in this file needs to change.
-const WEEK_TABS = ["Wk39", "Wk38"];
-
-// Auto-refresh interval (ms). 5 minutes.
+const WEEK_TABS = ["Wk38", "Wk39"];
 const AUTO_REFRESH_MS = 5 * 60 * 1000;
 
-/* Column layout of each week tab (0-indexed, header row = row 1) */
+// SHA-256 hash of the access password. Default password: lear2026 — CHANGE THIS.
+// To generate a new hash: open any browser console and run
+//   crypto.subtle.digest('SHA-256', new TextEncoder().encode('yourNewPassword'))
+//     .then(b => console.log([...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')))
+const PASSWORD_HASH = "e2553f7162f15417c9a52ee1e4465bac12bcda0a2354dd92e911f2e5df1104e4";
+
 const COL = {
   area: 0, pnImm: 1, opFixe: 2, col23: 3, urg: 4, project: 5, serial: 6,
   status: 7, prio: 8, comment: 9, attain: 10, remainDays: 11, gap: 12,
@@ -154,26 +204,55 @@ const DAY_COLS = [
 ];
 /* ======================================================= */
 
-let weeksData = {};   // { weekName: { rows: [...], dailyTotals, dailyObjTotal } }
+let weeksData = {};
+let prevRowsByWeek = {};
 let currentWeek = null;
 let charts = {};
 let sortState = { key: null, dir: 1 };
+let countdownTimer = null;
+let nextRefreshAt = 0;
+
+async function sha256(str){
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2,"0")).join("");
+}
+async function tryLogin(){
+  const pw = document.getElementById("pwInput").value;
+  const hash = await sha256(pw);
+  if(hash === PASSWORD_HASH){
+    sessionStorage.setItem("ci_dash_auth", "1");
+    showApp();
+  } else {
+    document.getElementById("loginErr").textContent = "Wrong password.";
+  }
+}
+function showApp(){
+  document.getElementById("loginScreen").style.display = "none";
+  document.getElementById("app").style.display = "block";
+  loadAll();
+  setInterval(loadAll, AUTO_REFRESH_MS);
+}
+document.getElementById("pwBtn").addEventListener("click", tryLogin);
+document.getElementById("pwInput").addEventListener("keydown", e => { if(e.key === "Enter") tryLogin(); });
+document.getElementById("logoutBtn").addEventListener("click", () => {
+  sessionStorage.removeItem("ci_dash_auth");
+  location.reload();
+});
+if(sessionStorage.getItem("ci_dash_auth") === "1") showApp();
 
 function csvUrl(sheetName){
   return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
 }
-
 function parseNum(v){
   if(v === null || v === undefined) return null;
   let s = String(v).trim();
   if(s === "" || s === "#N/A" || s === "-") return null;
   s = s.replace(/\s/g,"").replace(/%/g,"");
-  if(/^-?\d+,\d+$/.test(s)) s = s.replace(",", ".");      // French decimal comma
-  else s = s.replace(/,/g, "");                            // thousands separator
+  if(/^-?\d+,\d+$/.test(s)) s = s.replace(",", ".");
+  else s = s.replace(/,/g, "");
   const n = parseFloat(s);
   return isNaN(n) ? null : n;
 }
-
 function statusClass(status){
   const s = (status || "").toLowerCase().replace(/\s+/g,"");
   if(s === "done") return "b-done";
@@ -191,16 +270,15 @@ async function fetchWeek(sheetName){
   if(!res.ok) throw new Error(`HTTP ${res.status} loading "${sheetName}"`);
   const text = await res.text();
   if(text.trim().startsWith("<")) throw new Error(`"${sheetName}" tab not readable — check sharing settings`);
-  const parsed = Papa.parse(text, {skipEmptyLines:false});
-  const rows = parsed.data;
+  const rows = Papa.parse(text, {skipEmptyLines:false}).data;
 
   const out = [];
   let lastArea = "";
-  for(let i = 1; i < rows.length; i++){        // row 0 = header
+  for(let i = 1; i < rows.length; i++){
     const r = rows[i];
     if(!r || r.length < 2) continue;
     const pn = (r[COL.pnImm] || "").trim();
-    if(!pn) continue;                            // blank PN/IMM = not a data row
+    if(!pn) continue;
     const area = (r[COL.area] || "").trim();
     if(area) lastArea = area;
 
@@ -213,8 +291,7 @@ async function fetchWeek(sheetName){
     }
 
     out.push({
-      area: lastArea || "—",
-      pn,
+      area: lastArea || "—", pn,
       project: (r[COL.project] || "").trim(),
       status: (r[COL.status] || "").trim() || "—",
       prio: r[COL.prio] || "",
@@ -225,62 +302,93 @@ async function fetchWeek(sheetName){
       remaining: parseNum(r[COL.remainingQty]),
       ct: parseNum(r[COL.ct]),
       dailyObj: parseNum(r[COL.dailyObj]),
+      oee: parseNum(r[COL.oee]),
       days, dayTotal
     });
   }
 
-  const dailyTotals = {};
+  const dailyByArea = {};
   let dailyObjTotal = 0;
-  for(const [label] of DAY_COLS) dailyTotals[label] = 0;
   for(const row of out){
-    for(const [label] of DAY_COLS){
-      if(row.days[label]) dailyTotals[label] += row.days[label];
-    }
+    if(!dailyByArea[row.area]) dailyByArea[row.area] = Object.fromEntries(DAY_COLS.map(d => [d[0], 0]));
+    for(const [label] of DAY_COLS) if(row.days[label]) dailyByArea[row.area][label] += row.days[label];
     if(row.dailyObj) dailyObjTotal += row.dailyObj;
   }
+  return { rows: out, dailyByArea, dailyObjTotal };
+}
 
-  return { rows: out, dailyTotals, dailyObjTotal };
+function detectChanges(weekName, newRows){
+  const prev = prevRowsByWeek[weekName];
+  const alerts = [];
+  if(prev){
+    const prevMap = Object.fromEntries(prev.map(r => [r.pn, r]));
+    for(const r of newRows){
+      const old = prevMap[r.pn];
+      if(old && old.status !== r.status){
+        const bad = ["stopped","canceled","cancelled"].includes((r.status||"").toLowerCase());
+        alerts.push({pn:r.pn, project:r.project, from:old.status, to:r.status, bad});
+      }
+    }
+  }
+  prevRowsByWeek[weekName] = newRows;
+  return alerts;
 }
 
 async function loadAll(){
   setStatus("Loading…", "");
-  document.getElementById("banner").style.display = "none";
+  setConn(true);
+  clearInterval(countdownTimer);
   try{
     const results = await Promise.all(WEEK_TABS.map(w => fetchWeek(w).then(d => [w, d])));
+    const allAlerts = [];
+    for(const [w, d] of results) allAlerts.push(...detectChanges(w, d.rows).map(a => ({...a, week:w})));
     weeksData = Object.fromEntries(results);
     if(!currentWeek || !weeksData[currentWeek]) currentWeek = WEEK_TABS[WEEK_TABS.length - 1];
     populateWeekSelect();
     render();
+    renderAlerts(allAlerts);
     setStatus("Updated " + new Date().toLocaleTimeString(), "ok");
-    document.getElementById("lastUpdated").textContent = "last updated " + new Date().toLocaleString();
+    document.getElementById("lastUpdated").textContent = "updated " + new Date().toLocaleTimeString();
+    setConn(true);
   }catch(err){
     console.error(err);
-    setStatus("Fetch failed — see banner", "err");
+    setStatus("Fetch failed", "err");
+    setConn(false);
     showBanner("Couldn't load live data: " + err.message +
-      ". Make sure the Google Sheet is shared as \"Anyone with the link — Viewer\", and that the tab names above match exactly (case-sensitive).");
+      ". Make sure the Google Sheet is shared as \"Anyone with the link — Viewer\", and tab names match exactly.");
   }
+  startCountdown();
 }
 
-function setStatus(msg, cls){
-  const el = document.getElementById("status");
-  el.textContent = msg;
-  el.className = cls || "";
+function setStatus(msg, cls){ const el=document.getElementById("status"); el.textContent=msg; el.className=cls||""; }
+function setConn(ok){
+  const p = document.getElementById("connPill");
+  p.className = "pill " + (ok ? "live" : "dead");
+  p.innerHTML = `<span class="dot"></span>${ok ? "live" : "offline"}`;
 }
-function showBanner(msg){
-  const b = document.getElementById("banner");
-  b.textContent = msg;
-  b.style.display = "block";
+function showBanner(msg){ const b=document.getElementById("banner"); b.textContent=msg; b.style.display="block"; }
+function startCountdown(){
+  nextRefreshAt = Date.now() + AUTO_REFRESH_MS;
+  countdownTimer = setInterval(() => {
+    const secs = Math.max(0, Math.round((nextRefreshAt - Date.now())/1000));
+    const m = Math.floor(secs/60), s = String(secs%60).padStart(2,"0");
+    document.getElementById("countdown").textContent = `· next refresh in ${m}:${s}`;
+  }, 1000);
+}
+function renderAlerts(alerts){
+  const panel = document.getElementById("alertsPanel");
+  if(!alerts.length){ panel.style.display = "none"; return; }
+  panel.style.display = "block";
+  document.getElementById("alertsList").innerHTML = alerts.map(a =>
+    `<div class="row"><span>${a.bad ? "🔴" : "🔵"} <b>${a.pn}</b> (${a.week}) — ${a.project}</span><span>${a.from} → ${a.to}</span></div>`
+  ).join("");
 }
 
 function populateWeekSelect(){
   const sel = document.getElementById("weekSelect");
-  sel.innerHTML = "";
-  for(const w of WEEK_TABS){
-    const opt = document.createElement("option");
-    opt.value = w; opt.textContent = w;
-    if(w === currentWeek) opt.selected = true;
-    sel.appendChild(opt);
-  }
+  const cur = sel.value;
+  sel.innerHTML = WEEK_TABS.map(w => `<option value="${w}">${w}</option>`).join("");
+  sel.value = WEEK_TABS.includes(cur) ? cur : currentWeek;
 }
 
 function render(){
@@ -289,79 +397,78 @@ function render(){
   const rows = wk.rows;
   const hasAnyStatus = rows.some(r => r.status && r.status !== "—");
 
-  renderKPIs(rows, hasAnyStatus);
+  renderKPIs(rows);
   renderDailyChart(wk);
   renderStatusChart(rows);
   renderAreaChart(rows);
   renderWorstChart(rows);
+  renderPrioChart(rows);
   renderAttentionTable(rows);
   renderFullTable(rows);
 
   const banner = document.getElementById("banner");
-  if(!hasAnyStatus){
-    showBanner(`${currentWeek} hasn't started yet — showing the planned baseline only (no status recorded).`);
-  } else {
-    banner.style.display = "none";
-  }
+  if(!hasAnyStatus) showBanner(`${currentWeek} hasn't started yet — showing the planned baseline only (no status recorded).`);
+  else banner.style.display = "none";
 }
 
-function renderKPIs(rows, hasStatus){
-  const planned = rows.reduce((s,r) => s + (r.planned || 0), 0);
-  const produced = rows.reduce((s,r) => s + (r.produced || 0), 0);
-  const remaining = rows.reduce((s,r) => s + (r.remaining || 0), 0);
-  const overallAttain = planned > 0 ? (produced / planned * 100) : 0;
-  const behind80 = rows.filter(r => r.attain !== null && r.attain < 80 &&
-                    !["done","canceled","cancelled"].includes((r.status||"").toLowerCase())).length;
-  const stoppedCanceled = rows.filter(r => ["stopped","canceled","cancelled"].includes((r.status||"").toLowerCase())).length;
+function renderKPIs(rows){
+  const planned = rows.reduce((s,r)=>s+(r.planned||0),0);
+  const produced = rows.reduce((s,r)=>s+(r.produced||0),0);
+  const remaining = rows.reduce((s,r)=>s+(r.remaining||0),0);
+  const overallAttain = planned>0 ? (produced/planned*100) : 0;
+  const behind80 = rows.filter(r=>r.attain!==null && r.attain<80 && !["done","canceled","cancelled"].includes((r.status||"").toLowerCase())).length;
+  const stoppedCanceled = rows.filter(r=>["stopped","canceled","cancelled"].includes((r.status||"").toLowerCase())).length;
+  const oeeVals = rows.map(r=>r.oee).filter(v=>v!==null);
+  const avgOee = oeeVals.length ? oeeVals.reduce((a,b)=>a+b,0)/oeeVals.length : null;
 
   const kpis = [
-    ["Overall Attainment", overallAttain.toFixed(1) + "%"],
-    ["Planned Qty (k)", planned.toFixed(1)],
-    ["Produced Qty (k)", produced.toFixed(1)],
-    ["Remaining Qty (k)", remaining.toFixed(1)],
-    ["Lines Behind 80%", behind80],
-    ["Stopped / Canceled", stoppedCanceled],
-    ["Total Lines", rows.length],
+    ["Overall Attainment", overallAttain.toFixed(1)+"%", overallAttain>=80?"good":overallAttain>=50?"warn":"bad"],
+    ["Planned Qty (k)", planned.toFixed(1), ""],
+    ["Produced Qty (k)", produced.toFixed(1), ""],
+    ["Remaining Qty (k)", remaining.toFixed(1), ""],
+    ["Avg OEE", avgOee!==null ? avgOee.toFixed(0)+"%" : "—", avgOee>=85?"good":avgOee>=70?"warn":"bad"],
+    ["Lines Behind 80%", behind80, behind80>0?"warn":"good"],
+    ["Stopped / Canceled", stoppedCanceled, stoppedCanceled>0?"bad":"good"],
+    ["Total Lines", rows.length, ""],
   ];
-  const el = document.getElementById("kpis");
-  el.innerHTML = kpis.map(([label, value]) =>
-    `<div class="kpi"><div class="label">${label}</div><div class="value">${value}</div></div>`).join("");
+  document.getElementById("kpis").innerHTML = kpis.map(([label,value,cls]) =>
+    `<div class="kpi"><div class="label">${label}</div><div class="value ${cls}">${value}</div></div>`).join("");
 }
 
 function destroyChart(key){ if(charts[key]){ charts[key].destroy(); delete charts[key]; } }
+const CHART_OPTS_BASE = {responsive:true, maintainAspectRatio:false,
+  plugins:{legend:{labels:{color:"#e2e8f0",boxWidth:12,font:{size:11}}}},
+  scales:{x:{ticks:{color:"#94a3b8",font:{size:10}},grid:{color:"#2d3b52"}}, y:{ticks:{color:"#94a3b8",font:{size:10}},grid:{color:"#2d3b52"}}}};
 
 function renderDailyChart(wk){
   destroyChart("daily");
-  const labels = DAY_COLS.map(d => d[0]);
-  const produced = labels.map(l => Math.round(wk.dailyTotals[l] || 0));
-  const objective = labels.map(() => Math.round(wk.dailyObjTotal || 0));
-  const ctx = document.getElementById("dailyChart");
-  charts.daily = new Chart(ctx, {
-    data: {
-      labels,
-      datasets: [
-        {type:"bar", label:"Produced", data:produced, backgroundColor:"#38bdf8", borderRadius:4},
-        {type:"line", label:"Combined Objective", data:objective, borderColor:"#f59e0b", borderWidth:2, pointRadius:0, tension:0.2}
-      ]
-    },
-    options: {responsive:true, plugins:{legend:{labels:{color:"#e2e8f0"}}},
-      scales:{x:{ticks:{color:"#94a3b8"},grid:{color:"#2d3b52"}}, y:{ticks:{color:"#94a3b8"},grid:{color:"#2d3b52"}}}}
+  const labels = DAY_COLS.map(d=>d[0]);
+  const areas = Object.keys(wk.dailyByArea);
+  const palette = ["#38bdf8","#a78bfa","#34d399","#f472b6"];
+  const datasets = areas.map((a,i) => ({
+    type:"bar", label:a, stack:"prod",
+    data: labels.map(l => Math.round(wk.dailyByArea[a][l]||0)),
+    backgroundColor: palette[i % palette.length], borderRadius:3
+  }));
+  datasets.push({type:"line", label:"Combined Objective", data:labels.map(()=>Math.round(wk.dailyObjTotal||0)),
+    borderColor:"#f59e0b", borderWidth:2, pointRadius:0, tension:0.2});
+  charts.daily = new Chart(document.getElementById("dailyChart"), {
+    data:{labels, datasets},
+    options:{...CHART_OPTS_BASE, scales:{...CHART_OPTS_BASE.scales, x:{...CHART_OPTS_BASE.scales.x, stacked:true}, y:{...CHART_OPTS_BASE.scales.y, stacked:true}}}
   });
 }
 
 function renderStatusChart(rows){
   destroyChart("status");
   const counts = {};
-  for(const r of rows){ counts[r.status] = (counts[r.status]||0)+1; }
-  const labels = Object.keys(counts);
-  const data = Object.values(counts);
+  for(const r of rows) counts[r.status] = (counts[r.status]||0)+1;
+  const labels = Object.keys(counts), data = Object.values(counts);
   const palette = {done:"#22c55e",ongoing:"#3b82f6",planned:"#71717a",stopped:"#ef4444",
     canceled:"#fb923c",cancelled:"#fb923c",unfinished:"#f59e0b","not started":"#818cf8","—":"#475569"};
-  const colors = labels.map(l => palette[l.toLowerCase()] || "#a78bfa");
   charts.status = new Chart(document.getElementById("statusChart"), {
     type:"doughnut",
-    data:{labels, datasets:[{data, backgroundColor:colors}]},
-    options:{responsive:true, plugins:{legend:{position:"bottom",labels:{color:"#e2e8f0",boxWidth:12,font:{size:11}}}}}
+    data:{labels, datasets:[{data, backgroundColor:labels.map(l=>palette[l.toLowerCase()]||"#a78bfa")}]},
+    options:{...CHART_OPTS_BASE, plugins:{legend:{position:"bottom",labels:{color:"#e2e8f0",boxWidth:12,font:{size:11}}}}}
   });
 }
 
@@ -369,49 +476,52 @@ function renderAreaChart(rows){
   destroyChart("area");
   const byArea = {};
   for(const r of rows){
-    if(!byArea[r.area]) byArea[r.area] = {planned:0, produced:0};
-    byArea[r.area].planned += r.planned || 0;
-    byArea[r.area].produced += r.produced || 0;
+    if(!byArea[r.area]) byArea[r.area]={planned:0,produced:0};
+    byArea[r.area].planned += r.planned||0; byArea[r.area].produced += r.produced||0;
   }
   const labels = Object.keys(byArea);
-  const data = labels.map(a => {
-    const v = byArea[a];
-    return v.planned > 0 ? +(v.produced/v.planned*100).toFixed(1) : 0;
-  });
+  const data = labels.map(a => byArea[a].planned>0 ? +(byArea[a].produced/byArea[a].planned*100).toFixed(1) : 0);
   charts.area = new Chart(document.getElementById("areaChart"), {
     type:"bar",
     data:{labels, datasets:[{label:"Attainment %", data, backgroundColor:"#38bdf8", borderRadius:4}]},
-    options:{indexAxis:"y", responsive:true, plugins:{legend:{display:false}},
-      scales:{x:{max:120,ticks:{color:"#94a3b8"},grid:{color:"#2d3b52"}}, y:{ticks:{color:"#94a3b8"},grid:{display:false}}}}
+    options:{...CHART_OPTS_BASE, indexAxis:"y", plugins:{legend:{display:false}}, scales:{...CHART_OPTS_BASE.scales, x:{...CHART_OPTS_BASE.scales.x, max:120}}}
   });
 }
 
 function renderWorstChart(rows){
   destroyChart("worst");
-  const active = rows.filter(r => r.attain !== null &&
-    !["done","canceled","cancelled"].includes((r.status||"").toLowerCase()));
-  const worst = [...active].sort((a,b) => a.attain - b.attain).slice(0,10);
+  const active = rows.filter(r=>r.attain!==null && !["done","canceled","cancelled"].includes((r.status||"").toLowerCase()));
+  const worst = [...active].sort((a,b)=>a.attain-b.attain).slice(0,10);
   charts.worst = new Chart(document.getElementById("worstChart"), {
     type:"bar",
-    data:{labels:worst.map(r => r.pn), datasets:[{label:"Attain %", data:worst.map(r => r.attain), backgroundColor:"#ef4444", borderRadius:4}]},
-    options:{indexAxis:"y", responsive:true, plugins:{legend:{display:false}},
-      scales:{x:{max:100,ticks:{color:"#94a3b8"},grid:{color:"#2d3b52"}}, y:{ticks:{color:"#94a3b8",font:{size:10}},grid:{display:false}}}}
+    data:{labels:worst.map(r=>r.pn), datasets:[{label:"Attain %", data:worst.map(r=>r.attain), backgroundColor:"#ef4444", borderRadius:4}]},
+    options:{...CHART_OPTS_BASE, indexAxis:"y", plugins:{legend:{display:false}}, scales:{...CHART_OPTS_BASE.scales, x:{...CHART_OPTS_BASE.scales.x, max:100}}}
+  });
+}
+
+function renderPrioChart(rows){
+  destroyChart("prio");
+  const active = rows.filter(r => !["done","canceled","cancelled"].includes((r.status||"").toLowerCase()) && r.prio !== "");
+  const counts = {};
+  for(const r of active) counts[r.prio] = (counts[r.prio]||0)+1;
+  const labels = Object.keys(counts).sort((a,b)=>a-b);
+  charts.prio = new Chart(document.getElementById("prioChart"), {
+    type:"bar",
+    data:{labels:labels.map(l=>"P"+l), datasets:[{label:"Lines", data:labels.map(l=>counts[l]), backgroundColor:"#a78bfa", borderRadius:4}]},
+    options:{...CHART_OPTS_BASE, plugins:{legend:{display:false}}}
   });
 }
 
 function renderAttentionTable(rows){
-  const attn = rows.filter(r => {
-    const s = (r.status||"").toLowerCase();
-    return r.comment || (s && s !== "done" && s !== "canceled" && s !== "cancelled" && s !== "—");
-  }).sort((a,b) => (parseNum(a.prio) ?? 99) - (parseNum(b.prio) ?? 99));
-
-  const tbody = document.querySelector("#attnTable tbody");
-  tbody.innerHTML = attn.map(r => `<tr>
+  const attn = rows.filter(r=>{
+    const s=(r.status||"").toLowerCase();
+    return r.comment || (s && s!=="done" && s!=="canceled" && s!=="cancelled" && s!=="—");
+  }).sort((a,b)=>(parseNum(a.prio)??99)-(parseNum(b.prio)??99));
+  document.querySelector("#attnTable tbody").innerHTML = attn.map(r=>`<tr>
     <td>${r.area}</td><td>${r.pn}</td><td>${r.project}</td>
     <td><span class="badge ${statusClass(r.status)}">${r.status}</span></td>
-    <td>${r.prio}</td><td>${r.attain !== null ? r.attain.toFixed(0)+"%" : "—"}</td>
-    <td class="attn">${r.comment}</td>
-  </tr>`).join("") || `<tr><td colspan="7" style="color:var(--muted)">Nothing flagged.</td></tr>`;
+    <td>${r.prio}</td><td>${r.attain!==null?r.attain.toFixed(0)+"%":"—"}</td>
+    <td class="attn">${r.comment}</td></tr>`).join("") || `<tr><td colspan="7" style="color:var(--muted)">Nothing flagged.</td></tr>`;
 }
 
 let fullRowsCache = [];
@@ -420,75 +530,57 @@ function renderFullTable(rows){
   populateFilterOptions(rows);
   applyFiltersAndRender();
 }
-
 function populateFilterOptions(rows){
-  const fill = (id, values) => {
-    const sel = document.getElementById(id);
-    const current = sel.value;
-    sel.innerHTML = `<option value="">${sel.id === "areaFilter" ? "All Areas" : sel.id === "statusFilter" ? "All Statuses" : "All Prio"}</option>` +
-      values.map(v => `<option value="${v}">${v}</option>`).join("");
-    sel.value = current;
+  const fill=(id,values,label)=>{
+    const sel=document.getElementById(id); const cur=sel.value;
+    sel.innerHTML = `<option value="">${label}</option>` + values.map(v=>`<option value="${v}">${v}</option>`).join("");
+    sel.value = cur;
   };
-  fill("areaFilter", [...new Set(rows.map(r=>r.area))].sort());
-  fill("statusFilter", [...new Set(rows.map(r=>r.status))].sort());
-  fill("prioFilter", [...new Set(rows.map(r=>r.prio).filter(p=>p!==""))].sort((a,b)=>a-b));
+  fill("areaFilter",[...new Set(rows.map(r=>r.area))].sort(),"All Areas");
+  fill("statusFilter",[...new Set(rows.map(r=>r.status))].sort(),"All Statuses");
+  fill("prioFilter",[...new Set(rows.map(r=>r.prio).filter(p=>p!==""))].sort((a,b)=>a-b),"All Prio");
 }
-
 function applyFiltersAndRender(){
-  const q = document.getElementById("searchBox").value.toLowerCase();
-  const area = document.getElementById("areaFilter").value;
-  const status = document.getElementById("statusFilter").value;
-  const prio = document.getElementById("prioFilter").value;
-
-  let rows = fullRowsCache.filter(r => {
-    if(area && r.area !== area) return false;
-    if(status && r.status !== status) return false;
-    if(prio && String(r.prio) !== prio) return false;
-    if(q && !(r.pn.toLowerCase().includes(q) || r.project.toLowerCase().includes(q))) return false;
+  const q=document.getElementById("searchBox").value.toLowerCase();
+  const area=document.getElementById("areaFilter").value, status=document.getElementById("statusFilter").value, prio=document.getElementById("prioFilter").value;
+  let rows = fullRowsCache.filter(r=>{
+    if(area && r.area!==area) return false;
+    if(status && r.status!==status) return false;
+    if(prio && String(r.prio)!==prio) return false;
+    if(q && !(r.pn.toLowerCase().includes(q)||r.project.toLowerCase().includes(q))) return false;
     return true;
   });
-
   if(sortState.key){
-    rows = [...rows].sort((a,b) => {
-      let va = a[sortState.key], vb = b[sortState.key];
-      if(typeof va === "string") va = va.toLowerCase();
-      if(typeof vb === "string") vb = vb.toLowerCase();
-      if(va === null || va === undefined) va = -Infinity;
-      if(vb === null || vb === undefined) vb = -Infinity;
-      return va > vb ? sortState.dir : va < vb ? -sortState.dir : 0;
+    rows=[...rows].sort((a,b)=>{
+      let va=a[sortState.key], vb=b[sortState.key];
+      if(typeof va==="string") va=va.toLowerCase(); if(typeof vb==="string") vb=vb.toLowerCase();
+      if(va===null||va===undefined) va=-Infinity; if(vb===null||vb===undefined) vb=-Infinity;
+      return va>vb?sortState.dir:va<vb?-sortState.dir:0;
     });
   }
-
-  const tbody = document.querySelector("#fullTable tbody");
-  tbody.innerHTML = rows.map(r => `<tr>
+  document.querySelector("#fullTable tbody").innerHTML = rows.map(r=>`<tr>
     <td>${r.area}</td><td>${r.pn}</td><td>${r.project}</td>
     <td><span class="badge ${statusClass(r.status)}">${r.status}</span></td>
-    <td>${r.prio}</td>
-    <td>${r.attain !== null ? r.attain.toFixed(0)+"%" : "—"}</td>
-    <td>${r.planned ?? "—"}</td><td>${r.produced ?? "—"}</td><td>${r.remaining ?? "—"}</td>
-    <td>${r.ct ?? "—"}</td><td>${r.dailyObj ?? "—"}</td>
-    <td>${r.comment}</td>
-  </tr>`).join("");
+    <td>${r.prio}</td><td>${r.attain!==null?r.attain.toFixed(0)+"%":"—"}</td>
+    <td>${r.planned??"—"}</td><td>${r.produced??"—"}</td><td>${r.remaining??"—"}</td>
+    <td>${r.ct??"—"}</td><td>${r.dailyObj??"—"}</td><td>${r.oee!==null?r.oee.toFixed(0)+"%":"—"}</td>
+    <td>${r.comment}</td></tr>`).join("");
 }
 
-/* events */
-document.getElementById("weekSelect").addEventListener("change", e => { currentWeek = e.target.value; render(); });
+document.getElementById("weekSelect").addEventListener("change", e=>{currentWeek=e.target.value; render();});
 document.getElementById("refreshBtn").addEventListener("click", loadAll);
 document.getElementById("searchBox").addEventListener("input", applyFiltersAndRender);
 document.getElementById("areaFilter").addEventListener("change", applyFiltersAndRender);
 document.getElementById("statusFilter").addEventListener("change", applyFiltersAndRender);
 document.getElementById("prioFilter").addEventListener("change", applyFiltersAndRender);
-document.querySelectorAll("#fullTable th[data-k]").forEach(th => {
-  th.addEventListener("click", () => {
-    const k = th.dataset.k;
-    sortState.dir = (sortState.key === k) ? -sortState.dir : 1;
+document.querySelectorAll("#fullTable th[data-k]").forEach(th=>{
+  th.addEventListener("click", ()=>{
+    const k=th.dataset.k;
+    sortState.dir = (sortState.key===k) ? -sortState.dir : 1;
     sortState.key = k;
     applyFiltersAndRender();
   });
 });
-
-loadAll();
-setInterval(loadAll, AUTO_REFRESH_MS);
 </script>
 </body>
 </html>
