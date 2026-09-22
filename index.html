@@ -3,391 +3,492 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>W38.2026 CI Production Dashboard</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+<title>CI Production Dashboard — Molding &amp; Assy</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
-:root{
-  --bg:#0f1420; --bg-card:#ffffff; --bg-panel:#161d2e;
-  --text:#1c2333; --text-soft:#5b6478; --text-on-dark:#e8ecf5;
-  --accent:#2f6feb; --good:#1a9e5c; --warn:#d98a10; --bad:#d13b3b; --neutral:#8892a6;
-  --border:#e6e9f0; --radius:10px; --gap:16px;
-}
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    --bg:#0b0f18; --bg-card:#161c2b; --bg-panel:#0f1420; --text:#e8ecf5; --text-soft:#96a0b8;
-    --border:#262e42;
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --panel2:#162033; --border:#2d3b52;
+    --text:#e2e8f0; --muted:#94a3b8; --accent:#38bdf8;
+    --green:#22c55e; --orange:#f59e0b; --red:#ef4444; --blue:#3b82f6; --purple:#a78bfa;
   }
-}
-:root[data-theme="dark"]{
-  --bg:#0b0f18; --bg-card:#161c2b; --bg-panel:#0f1420; --text:#e8ecf5; --text-soft:#96a0b8;
-  --border:#262e42;
-}
-*{box-sizing:border-box; margin:0; padding:0;}
-body{
-  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
-  background:var(--bg); color:var(--text); line-height:1.5;
-}
-.wrap{max-width:1400px; margin:0 auto; padding:18px;}
-header{
-  background:var(--bg-panel); color:var(--text-on-dark); border-radius:var(--radius);
-  padding:20px 24px; margin-bottom:var(--gap);
-  display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px;
-}
-header h1{font-size:19px; font-weight:700; letter-spacing:.2px;}
-header .sub{font-size:12.5px; color:#aab4cc; margin-top:3px;}
-.filters{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
-.filters select, .filters input[type=text]{
-  padding:7px 10px; border-radius:6px; border:1px solid rgba(255,255,255,.18);
-  background:rgba(255,255,255,.08); color:var(--text-on-dark); font-size:13px;
-}
-.filters select option{background:#161d2e; color:#e8ecf5;}
-.kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:var(--gap); margin-bottom:var(--gap);}
-.kpi{background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:16px 18px;}
-.kpi .lbl{font-size:11.5px; text-transform:uppercase; letter-spacing:.5px; color:var(--text-soft); margin-bottom:6px;}
-.kpi .val{font-size:25px; font-weight:700;}
-.kpi .val.good{color:var(--good);} .kpi .val.warn{color:var(--warn);} .kpi .val.bad{color:var(--bad);}
-.grid2{display:grid; grid-template-columns:1.3fr 1fr; gap:var(--gap); margin-bottom:var(--gap);}
-.grid3{display:grid; grid-template-columns:1fr 1fr; gap:var(--gap); margin-bottom:var(--gap);}
-@media(max-width:900px){ .grid2, .grid3{grid-template-columns:1fr;} .kpis{grid-template-columns:repeat(2,1fr);} }
-.panel{background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:18px 20px;}
-.panel h3{font-size:13.5px; font-weight:700; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;}
-.panel h3 span.count{font-weight:500; color:var(--text-soft); font-size:12px;}
-canvas{max-height:280px;}
-table{width:100%; border-collapse:collapse; font-size:12.6px;}
-thead th{
-  text-align:left; padding:9px 10px; border-bottom:2px solid var(--border); color:var(--text-soft);
-  font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.4px; cursor:pointer; white-space:nowrap;
-  position:sticky; top:0; background:var(--bg-card);
-}
-thead th:hover{color:var(--accent);}
-tbody td{padding:8px 10px; border-bottom:1px solid var(--border); white-space:nowrap;}
-tbody tr:hover{background:rgba(47,111,235,.06);}
-.table-scroll{max-height:480px; overflow:auto;}
-.badge{display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600;}
-.b-done{background:rgba(26,158,92,.15); color:var(--good);}
-.b-ongoing{background:rgba(217,138,16,.15); color:var(--warn);}
-.b-planned{background:rgba(136,146,166,.18); color:var(--neutral);}
-.b-stopped, .b-canceled, .b-missed{background:rgba(209,59,59,.15); color:var(--bad);}
-.b-notstarted, .b-moved, .b-unfinished, .b-risky{background:rgba(136,146,166,.18); color:var(--neutral);}
-.attain-bar{display:inline-block; width:60px; height:6px; background:var(--border); border-radius:4px; overflow:hidden; vertical-align:middle; margin-right:6px;}
-.attain-fill{height:100%; display:block;}
-.prio-tag{font-weight:700;}
-.watch-row td:first-child{border-left:3px solid var(--bad);}
-footer{text-align:center; color:var(--text-soft); font-size:11.5px; padding:16px 0 8px;}
-.empty{padding:24px; text-align:center; color:var(--text-soft); font-size:13px;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  header{padding:18px 24px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg);z-index:10;}
+  header h1{font-size:19px;margin:0;font-weight:600;}
+  header .sub{color:var(--muted);font-size:12px;margin-top:2px;}
+  .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  select,button{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer;}
+  button:hover{border-color:var(--accent);}
+  button.primary{background:var(--accent);color:#04263d;font-weight:600;border:none;}
+  #status{font-size:12px;color:var(--muted);}
+  #status.err{color:var(--red);}
+  #status.ok{color:var(--green);}
+  main{padding:20px 24px;max-width:1400px;margin:0 auto;}
+  .banner{background:#3b2f0f;border:1px solid #7c5e12;color:#fcd34d;padding:10px 14px;border-radius:8px;margin-bottom:16px;font-size:13px;display:none;}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;}
+  .kpi{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
+  .kpi .label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+  .kpi .value{font-size:24px;font-weight:700;margin-top:4px;}
+  .grid2{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px;}
+  .grid3{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+  @media(max-width:900px){.grid2,.grid3{grid-template-columns:1fr;}}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px;}
+  .panel h2{font-size:14px;margin:0 0 12px;font-weight:600;color:var(--text);}
+  .panel-h{color:var(--muted);}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th,td{padding:7px 8px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;}
+  th{color:var(--muted);font-weight:600;position:sticky;top:0;background:var(--panel);cursor:pointer;user-select:none;}
+  tbody tr:hover{background:var(--panel2);}
+  .tablewrap{max-height:420px;overflow:auto;}
+  .badge{padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;}
+  .b-done{background:#14532d;color:#4ade80;}
+  .b-ongoing{background:#1e3a5f;color:#60a5fa;}
+  .b-planned{background:#3f3f46;color:#d4d4d8;}
+  .b-stopped{background:#450a0a;color:#f87171;}
+  .b-canceled{background:#3f2d1e;color:#fb923c;}
+  .b-unfinished{background:#422006;color:#fbbf24;}
+  .b-notstarted{background:#312e81;color:#a5b4fc;}
+  .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+  input[type=text]{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;font-size:13px;min-width:180px;}
+  .attn{font-size:12px;color:var(--orange);font-weight:600;}
 </style>
 </head>
 <body>
-<div class="wrap">
 
-  <header>
-    <div>
-      <h1>W38.2026 · Molding &amp; Assembly Production Dashboard</h1>
-      <div class="sub">Continuous Improvement view — attainment, gaps &amp; open issues by line</div>
+<header>
+  <div>
+    <h1>CI Production Dashboard — Molding &amp; Assy</h1>
+    <div class="sub">Live from Google Sheets · <span id="lastUpdated">not loaded yet</span></div>
+  </div>
+  <div class="controls">
+    <select id="weekSelect"></select>
+    <button class="primary" id="refreshBtn">⟳ Refresh now</button>
+    <span id="status"></span>
+  </div>
+</header>
+
+<main>
+  <div class="banner" id="banner"></div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="grid2">
+    <div class="panel">
+      <h2>Daily Output vs Combined Objective</h2>
+      <canvas id="dailyChart" height="110"></canvas>
     </div>
+    <div class="panel">
+      <h2>Status Breakdown</h2>
+      <canvas id="statusChart" height="110"></canvas>
+    </div>
+  </div>
+
+  <div class="grid3">
+    <div class="panel">
+      <h2>Attainment by Area</h2>
+      <canvas id="areaChart" height="130"></canvas>
+    </div>
+    <div class="panel">
+      <h2>Worst 10 — Attainment %</h2>
+      <canvas id="worstChart" height="130"></canvas>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:16px;">
+    <h2>Needs CI Attention <span class="panel-h">— open comments or non-Done/Canceled lines, sorted by priority</span></h2>
+    <div class="tablewrap">
+      <table id="attnTable">
+        <thead><tr><th>Area</th><th>PN / IMM</th><th>Project</th><th>Status</th><th>Prio</th><th>Attain%</th><th>Comment</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Full Line Table</h2>
     <div class="filters">
-      <select id="f-area"><option value="all">All Areas</option></select>
-      <select id="f-status"><option value="all">All Statuses</option></select>
-      <select id="f-prio"><option value="all">All Priorities</option></select>
-      <input type="text" id="f-search" placeholder="Search PN / IMM / Project...">
+      <input type="text" id="searchBox" placeholder="Search PN / Project / IMM...">
+      <select id="areaFilter"><option value="">All Areas</option></select>
+      <select id="statusFilter"><option value="">All Statuses</option></select>
+      <select id="prioFilter"><option value="">All Prio</option></select>
     </div>
-  </header>
-
-  <section class="kpis" id="kpi-row"></section>
-
-  <section class="grid2">
-    <div class="panel">
-      <h3>Daily Output vs Daily Objective (sum across selected lines)</h3>
-      <canvas id="chart-daily"></canvas>
-    </div>
-    <div class="panel">
-      <h3>Status Breakdown <span class="count" id="status-count"></span></h3>
-      <canvas id="chart-status"></canvas>
-    </div>
-  </section>
-
-  <section class="grid3">
-    <div class="panel">
-      <h3>Attainment % by Area</h3>
-      <canvas id="chart-area"></canvas>
-    </div>
-    <div class="panel">
-      <h3>Worst 10 Attainment (excl. Done/Canceled)</h3>
-      <canvas id="chart-worst"></canvas>
-    </div>
-  </section>
-
-  <section class="panel" style="margin-bottom:16px;">
-    <h3>⚠ Needs CI Attention <span class="count" id="watch-count"></span></h3>
-    <div class="table-scroll">
-      <table id="watch-table">
+    <div class="tablewrap">
+      <table id="fullTable">
         <thead><tr>
-          <th>Area</th><th>IMM</th><th>PN</th><th>Project</th><th>Status</th><th>Prio</th>
-          <th>Attain%</th><th>Remaining Qty</th><th>Issue / Comment</th>
+          <th data-k="area">Area</th><th data-k="pn">PN / IMM</th><th data-k="project">Project</th>
+          <th data-k="status">Status</th><th data-k="prio">Prio</th><th data-k="attain">Attain%</th>
+          <th data-k="planned">Planned</th><th data-k="produced">Produced</th><th data-k="remaining">Remaining</th>
+          <th data-k="ct">CT(s)</th><th data-k="dailyObj">Daily Obj</th><th data-k="comment">Comment</th>
         </tr></thead>
         <tbody></tbody>
       </table>
     </div>
-  </section>
-
-  <section class="panel">
-    <h3>All Lines <span class="count" id="row-count"></span></h3>
-    <div class="table-scroll">
-      <table id="main-table">
-        <thead><tr>
-          <th data-f="area">Area</th><th data-f="imm">IMM</th><th data-f="pn">PN</th>
-          <th data-f="project">Project</th><th data-f="status">Status</th><th data-f="prio">Prio</th>
-          <th data-f="attain">Attain%</th><th data-f="planned">Planned</th><th data-f="produced">Produced</th>
-          <th data-f="remaining_qty">Remaining</th><th data-f="ct">CT(s)</th><th data-f="daily_obj">Daily Obj</th>
-        </tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </section>
-
-  <footer>Source: Wk38_planning.xlsx (W38.2026) · Molding + Assembly lines · Built as a point-in-time snapshot</footer>
-</div>
+  </div>
+</main>
 
 <script>
-const DATA = [{"area": "Molding", "pn": "3216800H4", "imm": "IMM100", "project": "Wizmar 2", "status": "Planned", "prio": 2.0, "comment": "C/O", "attain": 0.0, "remaining_days": 1.91, "gap": 0.09, "planned": 13600.0, "produced": 0.0, "remaining_qty": 13600.0, "ct": 21.8, "pu": 800.0, "daily_obj": 7134.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "32195X0JC", "imm": "IMM100", "project": "Wizmar 2", "status": "Done", "prio": 1.0, "comment": "Accrochage", "attain": 100.0, "remaining_days": 0.0, "gap": null, "planned": 57600.0, "produced": 57600.0, "remaining_qty": 0.0, "ct": 16.5, "pu": 3600.0, "daily_obj": 18851.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 18000.0, "Jeudi": 10800.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E00891500", "imm": "IMM101", "project": "Wave 1.5", "status": "Done", "prio": 2.0, "comment": null, "attain": 100.0, "remaining_days": 0.0, "gap": 1.73, "planned": 7220.0, "produced": 7220.0, "remaining_qty": 0.0, "ct": 36.4, "pu": 380.0, "daily_obj": 8545.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 760.0, "Jeudi": 6460.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": 321990443, "imm": "IMM101", "project": "Wave 1.5", "status": "Done", "prio": 1.0, "comment": null, "attain": 100.0, "remaining_days": 0.0, "gap": null, "planned": 40850.0, "produced": 40850.0, "remaining_qty": 0.0, "ct": 28.2, "pu": 950.0, "daily_obj": 11030.0, "days": {"Lundi": 11400.0, "Mardi": 11400.0, "Mercredi": 5700.0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E04326200", "imm": "IMM101", "project": "Wave 1.5", "status": "Planned", "prio": 3.0, "comment": "C/O", "attain": 0.0, "remaining_days": 0.27, "gap": null, "planned": 2280.0, "produced": 0.0, "remaining_qty": 2280.0, "ct": 36.4, "pu": 380.0, "daily_obj": 8545.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "32165K2MA", "imm": "IMM102", "project": "Wizmar", "status": "Done", "prio": 2.0, "comment": "Waiting dryer availability", "attain": 100.0, "remaining_days": 0.0, "gap": 2.0, "planned": 7500.0, "produced": 7500.0, "remaining_qty": 0.0, "ct": 20.5, "pu": 1500.0, "daily_obj": 15173.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 3000.0, "Jeudi": 4500.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "32195X0LV", "imm": "IMM102", "project": "Wave 1.5", "status": "Done", "prio": 3.0, "comment": "Log request Prio 1 : to add prod 42K pcs as anticipation W39", "attain": 100.0, "remaining_days": 0.0, "gap": null, "planned": 14000.0, "produced": 14000.0, "remaining_qty": 0.0, "ct": 14.8, "pu": 14000.0, "daily_obj": 42032.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 10000.0, "Vendredi": 4000.0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": 321619041, "imm": "IMM102", "project": "Wave 1.5", "status": "Done", "prio": 1.0, "comment": "Log request Prio 2 : to add prod 100K pcs as anticipation W39", "attain": 100.0, "remaining_days": 0.0, "gap": null, "planned": 60000.0, "produced": 60000.0, "remaining_qty": 0.0, "ct": 12.5, "pu": 20000.0, "daily_obj": 49766.0, "days": {"Lundi": 20000.0, "Mardi": 10000.0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E50887200", "imm": "IMM103", "project": "IP channel V216", "status": "Done", "prio": 1.0, "comment": "missing dryer", "attain": 100.0, "remaining_days": 0.0, "gap": 2.0, "planned": 13600.0, "produced": 13600.0, "remaining_qty": 0.0, "ct": 24.0, "pu": 340.0, "daily_obj": 6480.0, "days": {"Lundi": 1360.0, "Mardi": 5540.0, "Mercredi": 4750.0, "Jeudi": 1950.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E25714600", "imm": "IMM104", "project": "Wave 1.4", "status": "Done", "prio": null, "comment": "probleme noyau TBC", "attain": 93.8, "remaining_days": 0.13, "gap": -2.03, "planned": 8320.0, "produced": 7800.0, "remaining_qty": 520.0, "ct": 40.0, "pu": 104.0, "daily_obj": 3888.0, "days": {"Lundi": 1976.0, "Mardi": 1664.0, "Mercredi": 2496.0, "Jeudi": 1044.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E27450000", "imm": "IMM104", "project": "Wave 1.4", "status": "Ongoing", "prio": null, "comment": null, "attain": 0.0, "remaining_days": 1.27, "gap": null, "planned": 5120.0, "produced": 0.0, "remaining_qty": 5120.0, "ct": 38.5, "pu": 80.0, "daily_obj": 4039.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E29997600", "imm": "IMM104", "project": "Wave 1.4", "status": "Planned", "prio": null, "comment": "PM Machine if missing OP", "attain": 0.0, "remaining_days": 2.63, "gap": null, "planned": 10240.0, "produced": 0.0, "remaining_qty": 10240.0, "ct": 39.9, "pu": 160.0, "daily_obj": 3898.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E48545000", "imm": "IMM105", "project": "RSA Flexevan - Fixation wire battery", "status": "Planned", "prio": 1.0, "comment": "Missing op, agreement with Log to switch to prio3 w/o OP", "attain": 0.0, "remaining_days": 1.95, "gap": -1.66, "planned": 11000.0, "produced": 0.0, "remaining_qty": 11000.0, "ct": 55.0, "pu": 100.0, "daily_obj": 5655.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E48544400", "imm": "IMM105", "project": "RSA Flexevan - Fixation wire battery", "status": "Planned", "prio": 2.0, "comment": null, "attain": 0.0, "remaining_days": 1.45, "gap": null, "planned": 10000.0, "produced": 0.0, "remaining_qty": 10000.0, "ct": 45.0, "pu": 200.0, "daily_obj": 6912.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E29118100", "imm": "IMM105", "project": "Wave 3.2.1", "status": "Ongoing", "prio": 3.0, "comment": "Run last prio due missing op/ change over/ Waiting dryer availability", "attain": 0.0, "remaining_days": 0.27, "gap": null, "planned": 3000.0, "produced": 0.0, "remaining_qty": 3000.0, "ct": 27.7, "pu": 1000.0, "daily_obj": 11229.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E30194700", "imm": "IMM106", "project": "MAK - 2way Inner Housing B", "status": "Done", "prio": 1.0, "comment": "PM Machine not feasible this week as critical IMM, sauf si arret Tooling / tool issue burrs", "attain": 100.0, "remaining_days": 0.0, "gap": -0.88, "planned": 200000.0, "produced": 200000.0, "remaining_qty": 0.0, "ct": 16.3, "pu": 4000.0, "daily_obj": 76329.0, "days": {"Lundi": 24000.0, "Mardi": 64000.0, "Mercredi": 64000.0, "Jeudi": 48000.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E30204200", "imm": "IMM106", "project": "MAK - 3way Inner Housing B", "status": "OG (Issue resolved)", "prio": 2.0, "comment": "Version change tool", "attain": 0.0, "remaining_days": 1.57, "gap": null, "planned": 120000.0, "produced": 0.0, "remaining_qty": 120000.0, "ct": 16.3, "pu": 4000.0, "daily_obj": 76329.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E30204500", "imm": "IMM106", "project": "MAK - 3way Inner Housing C", "status": "Planned", "prio": 3.0, "comment": null, "attain": 0.0, "remaining_days": 1.31, "gap": null, "planned": 100000.0, "produced": 0.0, "remaining_qty": 100000.0, "ct": 16.3, "pu": 4000.0, "daily_obj": 76329.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "32195X0J1", "imm": "IMM107", "project": "Wizmar 2", "status": "Ongoing", "prio": 1.0, "comment": null, "attain": 100.0, "remaining_days": 0.0, "gap": 2.0, "planned": 61200.0, "produced": 61200.0, "remaining_qty": 0.0, "ct": 14.5, "pu": 3600.0, "daily_obj": 10726.0, "days": {"Lundi": 10800.0, "Mardi": 10800.0, "Mercredi": 10800.0, "Jeudi": 10400.0, "Vendredi": 7600.0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E01175300", "imm": "IMM108", "project": "Wizmar 2", "status": "Ongoing", "prio": 1.0, "comment": "PM Machine during CO or Sunday", "attain": 84.6, "remaining_days": 0.69, "gap": 0.32, "planned": 130000.0, "produced": 110000.0, "remaining_qty": 20000.0, "ct": 21.5, "pu": 2000.0, "daily_obj": 28934.0, "days": {"Lundi": 14000.0, "Mardi": 34000.0, "Mercredi": 30000.0, "Jeudi": 32000.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E00022938", "imm": "IMM108", "project": "Wizmar 2", "status": "Planned", "prio": 2.0, "comment": null, "attain": 0.0, "remaining_days": 0.99, "gap": null, "planned": 7020.0, "produced": 0.0, "remaining_qty": 7020.0, "ct": 22.0, "pu": 130.0, "daily_obj": 7069.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E05896200", "imm": "IMM110", "project": "Wizmar 2", "status": "Done", "prio": null, "comment": "PM Machine Done", "attain": 100.0, "remaining_days": 0.0, "gap": 2.0, "planned": 16000.0, "produced": 16000.0, "remaining_qty": 0.0, "ct": 25.0, "pu": 250.0, "daily_obj": 6221.0, "days": {"Lundi": 5750.0, "Mardi": 6000.0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "2216523A6", "imm": "IMM111", "project": "Wave 1.5", "status": "Done", "prio": 1.0, "comment": null, "attain": 100.0, "remaining_days": 0.0, "gap": 2.16, "planned": 11200.0, "produced": 11200.0, "remaining_qty": 0.0, "ct": 23.0, "pu": 800.0, "daily_obj": 13523.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "2216782G9", "imm": "IMM111", "project": "Wave 1.5", "status": "Ongoing", "prio": 2.0, "comment": "Version change tool / surproduction", "attain": 105.5, "remaining_days": -0.16, "gap": null, "planned": 40000.0, "produced": 42200.0, "remaining_qty": -2200.0, "ct": 23.0, "pu": 800.0, "daily_obj": 13523.0, "days": {"Lundi": 8800.0, "Mardi": 10400.0, "Mercredi": 12800.0, "Jeudi": 10200.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E30194500", "imm": "IMM112", "project": "MAK - 2way Outer Housing", "status": "Done", "prio": null, "comment": "Sampling done weekend W37 vs planning in prod ! To adjust Qty", "attain": 100.0, "remaining_days": 0.0, "gap": -2.48, "planned": 100000.0, "produced": 100000.0, "remaining_qty": 0.0, "ct": 17.0, "pu": 2000.0, "daily_obj": 36593.0, "days": {"Lundi": 42000.0, "Mardi": 36000.0, "Mercredi": 22000.0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E30203900", "imm": "IMM112", "project": "MAK - 3way Outer Housing", "status": "Ongoing", "prio": null, "comment": null, "attain": 19.6, "remaining_days": 4.48, "gap": null, "planned": 204000.0, "produced": 40000.0, "remaining_qty": 164000.0, "ct": 17.0, "pu": 2000.0, "daily_obj": 36593.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 40000.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E50465000", "imm": "IMM113", "project": "Wave 3.2.2", "status": "Stopped", "prio": 1.0, "comment": "Signal of robot gripper / broken insert", "attain": 45.9, "remaining_days": 2.14, "gap": -2.11, "planned": 160000.0, "produced": 73400.0, "remaining_qty": 86600.0, "ct": 15.4, "pu": 2000.0, "daily_obj": 40395.0, "days": {"Lundi": 14000.0, "Mardi": 12000.0, "Mercredi": 24000.0, "Jeudi": 23400.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E03893500", "imm": "IMM113", "project": "Wave 3.2.1", "status": "Planned", "prio": 2.0, "comment": "Friday to check if we should switch to prio2", "attain": 0.0, "remaining_days": 1.96, "gap": null, "planned": 10140.0, "produced": 0.0, "remaining_qty": 10140.0, "ct": 30.1, "pu": 260.0, "daily_obj": 5167.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "3216781G9", "imm": "IMM114", "project": "Wave 3.2.1", "status": "Done", "prio": 1.0, "comment": null, "attain": 100.0, "remaining_days": 0.0, "gap": 2.0, "planned": 4000.0, "produced": 4000.0, "remaining_qty": 0.0, "ct": 23.3, "pu": 1000.0, "daily_obj": 6675.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E09239000", "imm": "IMM114", "project": "Wave 3.2.1", "status": "Done", "prio": 2.0, "comment": "Version change tool / tool issue/ Robot issue resolved", "attain": 100.0, "remaining_days": 0.0, "gap": null, "planned": 4000.0, "produced": 4000.0, "remaining_qty": 0.0, "ct": 23.3, "pu": 1000.0, "daily_obj": 6675.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 4000.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E30204800", "imm": "IMM115", "project": "MAK - 3way TPA", "status": "Ongoing", "prio": 2.0, "comment": null, "attain": 42.2, "remaining_days": 2.11, "gap": -0.11, "planned": 384000.0, "produced": 162000.0, "remaining_qty": 222000.0, "ct": 11.8, "pu": 48000.0, "daily_obj": 105437.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 48000.0, "Jeudi": 114000.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E30195100", "imm": "IMM115", "project": "MAK - CPA", "status": "Done", "prio": 1.0, "comment": null, "attain": 100.0, "remaining_days": 0.0, "gap": null, "planned": 440000.0, "produced": 440000.0, "remaining_qty": 0.0, "ct": 11.8, "pu": 40000.0, "daily_obj": 105437.0, "days": {"Lundi": 80000.0, "Mardi": 120000.0, "Mercredi": 40000.0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E04324300", "imm": "IMM116", "project": "Wave 1.5", "status": "Not started", "prio": 2.0, "comment": "Thermo OK + Doser issue not yet resolved", "attain": 0.0, "remaining_days": 3.44, "gap": -1.44, "planned": 30000.0, "produced": 0.0, "remaining_qty": 30000.0, "ct": 35.7, "pu": 500.0, "daily_obj": 8713.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "3216815A2", "imm": "IMM116", "project": "Wave 3.2.1", "status": "Done", "prio": 1.0, "comment": null, "attain": 100.0, "remaining_days": 0.0, "gap": null, "planned": 70000.0, "produced": 70000.0, "remaining_qty": 0.0, "ct": 16.59, "pu": 2000.0, "daily_obj": 18749.0, "days": {"Lundi": 8000.0, "Mardi": 12000.0, "Mercredi": 20000.0, "Jeudi": 8000.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "32165K46A", "imm": "IMM117", "project": "Wizmar 2", "status": "Ongoing", "prio": 1.0, "comment": null, "attain": 90.6, "remaining_days": 0.65, "gap": 1.35, "planned": 154000.0, "produced": 139500.0, "remaining_qty": 14500.0, "ct": 27.9, "pu": 5500.0, "daily_obj": 22297.0, "days": {"Lundi": 24000.0, "Mardi": 22000.0, "Mercredi": 22000.0, "Jeudi": 22000.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "32165K463", "imm": "IMM118", "project": "Wizmar 2", "status": "OG (Issue resolved)", "prio": null, "comment": "Tool issue ", "attain": 36.2, "remaining_days": 5.51, "gap": -3.51, "planned": 131100.0, "produced": 47500.0, "remaining_qty": 83600.0, "ct": 20.5, "pu": 1900.0, "daily_obj": 15173.0, "days": {"Lundi": 11400.0, "Mardi": 9500.0, "Mercredi": 11400.0, "Jeudi": 15200.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "3216800V0", "imm": "IMM120", "project": "Wave 3.2.3", "status": "Ongoing", "prio": null, "comment": "Plus Qt\u00e9 60800 PC", "attain": 90.4, "remaining_days": 0.21, "gap": 1.79, "planned": 72000.0, "produced": 65090.0, "remaining_qty": 6910.0, "ct": 19.0, "pu": 1600.0, "daily_obj": 32741.0, "days": {"Lundi": 0, "Mardi": 7490.0, "Mercredi": 27200.0, "Jeudi": 30400.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "3216813G1", "imm": "IMM120", "project": "Wave 3.2.2", "status": "Done", "prio": null, "comment": null, "attain": 100.0, "remaining_days": 0.0, "gap": null, "planned": 20000.0, "produced": 20000.0, "remaining_qty": 0.0, "ct": 15.82, "pu": 1000.0, "daily_obj": 19661.0, "days": {"Lundi": 13000.0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E25713700", "imm": "IMM301", "project": "Wave 1.3", "status": "Done", "prio": 1.0, "comment": null, "attain": 100.0, "remaining_days": 0.0, "gap": -1.68, "planned": 6048.0, "produced": 6048.0, "remaining_qty": 0.0, "ct": 37.0, "pu": 14.0, "daily_obj": 2102.0, "days": {"Lundi": 1372.0, "Mardi": 1134.0, "Mercredi": 1834.0, "Jeudi": 336.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E27677000", "imm": "IMM301", "project": "Wave 1.3", "status": "Ongoing", "prio": 2.0, "comment": "C/O", "attain": 18.4, "remaining_days": 1.59, "gap": null, "planned": 4096.0, "produced": 752.0, "remaining_qty": 3344.0, "ct": 37.0, "pu": 16.0, "daily_obj": 2102.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 752.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E35297001", "imm": "IMM301", "project": "Wave 1.3", "status": "Planned", "prio": 3.0, "comment": "To adjust Qty with Log as Sunday OFF", "attain": 0.0, "remaining_days": 2.09, "gap": null, "planned": 5148.0, "produced": 0.0, "remaining_qty": 5148.0, "ct": 31.6, "pu": 39.0, "daily_obj": 2461.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E15291200", "imm": "IMM302", "project": "VCU", "status": "Done", "prio": 1.0, "comment": null, "attain": 100.0, "remaining_days": 0.0, "gap": -1.44, "planned": 23040.0, "produced": 23040.0, "remaining_qty": 0.0, "ct": 25.96, "pu": 180.0, "daily_obj": 11982.0, "days": {"Lundi": 8820.0, "Mardi": 4500.0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E47102000", "imm": "IMM302", "project": "HR12 Euro7 Channel Battery", "status": "Ongoing", "prio": 2.0, "comment": "CO ongoing, attainment can't bo 100% as need 1OP + Sunday OFF", "attain": 26.2, "remaining_days": 3.44, "gap": null, "planned": 15120.0, "produced": 3960.0, "remaining_qty": 11160.0, "ct": 48.0, "pu": 40.0, "daily_obj": 3240.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 760.0, "Jeudi": 3200.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E02298900", "imm": "IMM302", "project": "BSB", "status": "Done", "prio": 3.0, "comment": null, "attain": 100.0, "remaining_days": 0.0, "gap": null, "planned": 2250.0, "produced": 2250.0, "remaining_qty": 0.0, "ct": 29.0, "pu": 450.0, "daily_obj": 5363.0, "days": {"Lundi": 0, "Mardi": 1650.0, "Mercredi": 600.0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E49080501", "imm": "IMM303", "project": "VI - RSA Flexevan - channel plancher", "status": "Done", "prio": 1.0, "comment": "Startup delay as need process / C-O", "attain": 100.0, "remaining_days": 0.0, "gap": -0.81, "planned": 22005.0, "produced": 22005.0, "remaining_qty": 0.0, "ct": 28.5, "pu": 135.0, "daily_obj": 5457.0, "days": {"Lundi": 3780.0, "Mardi": 4680.0, "Mercredi": 5130.0, "Jeudi": 5130.0, "Vendredi": 2100.0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E25711901", "imm": "IMM303", "project": "Wave 1.1", "status": "Planned", "prio": 3.0, "comment": "To adjust Qty with Log as Sunday OFF", "attain": 0.0, "remaining_days": 1.88, "gap": null, "planned": 8960.0, "produced": 0.0, "remaining_qty": 8960.0, "ct": 32.7, "pu": 56.0, "daily_obj": 4756.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E44890800", "imm": "IMM303", "project": "eBOX", "status": "Planned", "prio": 2.0, "comment": "CO", "attain": 0.0, "remaining_days": 0.93, "gap": null, "planned": 8505.0, "produced": 0.0, "remaining_qty": 8505.0, "ct": 34.0, "pu": 63.0, "daily_obj": 9148.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E04323200", "imm": "IMM304", "project": "Wave 1.5", "status": "Planned", "prio": 2.0, "comment": "Should run Sunday even if prio1 not completed", "attain": 0.0, "remaining_days": 0.39, "gap": -2.28, "planned": 3500.0, "produced": 0.0, "remaining_qty": 3500.0, "ct": 34.7, "pu": 700.0, "daily_obj": 8964.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E43546900", "imm": "IMM304", "project": "Stop & Start Channel", "status": "Ongoing", "prio": 1.0, "comment": "PM Machine /missig OP/ D\u00e9r\u00e9glage gripper", "attain": 38.2, "remaining_days": 3.89, "gap": null, "planned": 24600.0, "produced": 9400.0, "remaining_qty": 15200.0, "ct": 39.8, "pu": 200.0, "daily_obj": 3908.0, "days": {"Lundi": 1400.0, "Mardi": 1600.0, "Mercredi": 3400.0, "Jeudi": 3000.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E39258801", "imm": "IMM305", "project": "Echo5", "status": "Done", "prio": 1.0, "comment": null, "attain": 98.9, "remaining_days": 0.02, "gap": -0.43, "planned": 6004.0, "produced": 5938.0, "remaining_qty": 66.0, "ct": 48.5, "pu": 76.0, "daily_obj": 2850.0, "days": {"Lundi": 2812.0, "Mardi": 2518.0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E39315400", "imm": "IMM305", "project": "Echo5", "status": "Planned", "prio": 3.0, "comment": "Log to adjust planning as agreed with Prod as attaonment NOK vs planning", "attain": 0.0, "remaining_days": 1.72, "gap": null, "planned": 6016.0, "produced": 0.0, "remaining_qty": 6016.0, "ct": 39.5, "pu": 128.0, "daily_obj": 3500.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E39315500", "imm": "IMM305", "project": "Echo5", "status": "Planned", "prio": 4.0, "comment": null, "attain": 47.0, "remaining_days": 1.01, "gap": null, "planned": 6160.0, "produced": 2898.0, "remaining_qty": 3262.0, "ct": 43.0, "pu": 220.0, "daily_obj": 3215.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E35778300", "imm": "IMM305", "project": "MHEV Positive Former", "status": "Ongoing", "prio": 2.0, "comment": "Robot Kuka issue", "attain": 72.2, "remaining_days": 0.68, "gap": null, "planned": 8640.0, "produced": 6240.0, "remaining_qty": 2400.0, "ct": 39.0, "pu": 60.0, "daily_obj": 3545.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 3000.0, "Jeudi": 3240.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E42166500", "imm": "IMM306", "project": "Euro7 PEB", "status": "Ongoing", "prio": null, "comment": null, "attain": 86.7, "remaining_days": 0.41, "gap": 2.59, "planned": 12000.0, "produced": 10400.0, "remaining_qty": 1600.0, "ct": 40.0, "pu": 80.0, "daily_obj": 3888.0, "days": {"Lundi": 2720.0, "Mardi": 1360.0, "Mercredi": 2640.0, "Jeudi": 3680.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E26266100", "imm": "IMM501", "project": "P6700", "status": "Planned", "prio": 1.0, "comment": "Tool issue move to next prio / missing dryer", "attain": 59.3, "remaining_days": 0.81, "gap": 0.08, "planned": 3060.0, "produced": 1815.0, "remaining_qty": 1245.0, "ct": 50.7, "pu": 15.0, "daily_obj": 1534.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E47084500", "imm": "IMM501", "project": "XJB RESERVOIR", "status": "Done", "prio": 2.0, "comment": null, "attain": 101.1, "remaining_days": -0.03, "gap": null, "planned": 4032.0, "produced": 4077.0, "remaining_qty": -45.0, "ct": 50.0, "pu": 14.0, "daily_obj": 1555.0, "days": {"Lundi": 392.0, "Mardi": 1624.0, "Mercredi": 1078.0, "Jeudi": 983.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E47084700", "imm": "IMM501", "project": "B1318 RESERVOIR", "status": "Ongoing", "prio": 3.0, "comment": null, "attain": 12.5, "remaining_days": 1.13, "gap": null, "planned": 2880.0, "produced": 360.0, "remaining_qty": 2520.0, "ct": 35.0, "pu": 20.0, "daily_obj": 2222.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 360.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E25710300", "imm": "IMM502", "project": "Wave 1.2", "status": "Ongoing", "prio": 1.0, "comment": null, "attain": 68.9, "remaining_days": 1.61, "gap": -0.36, "planned": 10032.0, "produced": 6908.0, "remaining_qty": 3124.0, "ct": 40.0, "pu": 22.0, "daily_obj": 1944.0, "days": {"Lundi": 1056.0, "Mardi": 1232.0, "Mercredi": 1386.0, "Jeudi": 1694.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E25714201", "imm": "IMM502", "project": "Wave 1.2", "status": "Planned", "prio": 2.0, "comment": null, "attain": 0.0, "remaining_days": 0.76, "gap": null, "planned": 1377.0, "produced": 0.0, "remaining_qty": 1377.0, "ct": 42.7, "pu": 17.0, "daily_obj": 1821.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E45553700", "imm": "IMM503", "project": "eBOX", "status": "Ongoing", "prio": 1.0, "comment": "Broken insert + bull d'air + tool repair + accrochage", "attain": 60.2, "remaining_days": 1.79, "gap": -2.62, "planned": 27104.0, "produced": 16320.0, "remaining_qty": 10784.0, "ct": 51.5, "pu": 112.0, "daily_obj": 6040.0, "days": {"Lundi": 5920.0, "Mardi": 3840.0, "Mercredi": 0, "Jeudi": 3520.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E51517301", "imm": "IMM503", "project": "Renault XFK 6.4 ", "status": "Canceled", "prio": null, "comment": null, "attain": 0.0, "remaining_days": null, "gap": null, "planned": 1008.0, "produced": 0.0, "remaining_qty": 1008.0, "ct": 48.0, "pu": 16.0, "daily_obj": 1620.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E51517701", "imm": "IMM503", "project": "Renault XFK 6.4 ", "status": "Canceled", "prio": null, "comment": null, "attain": 0.0, "remaining_days": null, "gap": null, "planned": 1008.0, "produced": 0.0, "remaining_qty": 1008.0, "ct": 59.5, "pu": 12.0, "daily_obj": 2614.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E45152000", "imm": "IMM503", "project": "eBOX", "status": "Planned", "prio": 2.0, "comment": null, "attain": 0.0, "remaining_days": 2.84, "gap": null, "planned": 10032.0, "produced": 0.0, "remaining_qty": 10032.0, "ct": 44.0, "pu": 48.0, "daily_obj": 3535.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E21724300", "imm": "IMM505", "project": "C1A", "status": "OG (Issue resolved)", "prio": null, "comment": "PM Machine/ limite pression d\u00e9pass\u00e9 busette intervention tooling", "attain": 53.9, "remaining_days": 3.0, "gap": -0.0, "planned": 50400.0, "produced": 27150.0, "remaining_qty": 23250.0, "ct": 40.2, "pu": 70.0, "daily_obj": 7737.0, "days": {"Lundi": 6460.0, "Mardi": 8230.0, "Mercredi": 7980.0, "Jeudi": 2240.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E10155000", "imm": "IMM506", "project": "C1A", "status": "Ongoing", "prio": null, "comment": "PM Machine / start-up monday , weekend (Upper)", "attain": 55.3, "remaining_days": 3.18, "gap": -1.18, "planned": 67116.0, "produced": 37110.0, "remaining_qty": 30006.0, "ct": 33.0, "pu": 141.0, "daily_obj": 9425.0, "days": {"Lundi": 5350.0, "Mardi": 10220.0, "Mercredi": 10660.0, "Jeudi": 10880.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E25714000", "imm": "IMM507", "project": "Wave 1.3", "status": "Planned", "prio": 2.0, "comment": "C/O , start-up OG", "attain": 0.0, "remaining_days": 2.52, "gap": -2.35, "planned": 5152.0, "produced": 0.0, "remaining_qty": 5152.0, "ct": 38.0, "pu": 14.0, "daily_obj": 2046.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E42166401", "imm": "IMM507", "project": "Euro7 Point 0", "status": "Done", "prio": 1.0, "comment": null, "attain": 100.0, "remaining_days": 0.0, "gap": null, "planned": 8064.0, "produced": 8064.0, "remaining_qty": 0.0, "ct": 48.0, "pu": 32.0, "daily_obj": 3240.0, "days": {"Lundi": 2510.0, "Mardi": 2540.0, "Mercredi": 1792.0, "Jeudi": 1222.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E40690100", "imm": "IMM507", "project": "JLR 25.5 MY ", "status": "Planned", "prio": 3.0, "comment": null, "attain": 0.0, "remaining_days": 0.91, "gap": null, "planned": 1020.0, "produced": 0.0, "remaining_qty": 1020.0, "ct": 69.7, "pu": 60.0, "daily_obj": 1116.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Molding", "pn": "E40690200", "imm": "IMM507", "project": "JLR 25.5 MY ", "status": "Planned", "prio": 3.0, "comment": null, "attain": 0.0, "remaining_days": 0.91, "gap": null, "planned": 1020.0, "produced": 0.0, "remaining_qty": 1020.0, "ct": 69.7, "pu": 60.0, "daily_obj": 1116.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Assy", "pn": "32165K3GF", "imm": "Assy01", "project": "Wave 1.5", "status": "Canceled", "prio": null, "comment": null, "attain": 0.0, "remaining_days": 1.91, "gap": 0.09, "planned": 7068.0, "produced": 0.0, "remaining_qty": 7068.0, "ct": 21.0, "pu": 228.0, "daily_obj": 3703.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Assy", "pn": "E04323100", "imm": "Assy02", "project": "Wave 1.5", "status": "Ongoing", "prio": null, "comment": "PM Machine / Anticipation", "attain": 120.7, "remaining_days": -0.56, "gap": 2.56, "planned": 10080.0, "produced": 12170.0, "remaining_qty": -2090.0, "ct": 21.0, "pu": 240.0, "daily_obj": 3703.0, "days": {"Lundi": 1196.0, "Mardi": 2260.0, "Mercredi": 3098.0, "Jeudi": 3220.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Assy", "pn": "3216523A5", "imm": "Assy03", "project": "Wave 1.5", "status": "Done", "prio": 1.0, "comment": null, "attain": 100.0, "remaining_days": 0.0, "gap": 2.02, "planned": 4000.0, "produced": 4000.0, "remaining_qty": 0.0, "ct": 9.0, "pu": 800.0, "daily_obj": 8640.0, "days": {"Lundi": 1623.0, "Mardi": 2377.0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Assy", "pn": "3216782G8", "imm": "Assy03", "project": "Wave 1.5", "status": "Done", "prio": 2.0, "comment": null, "attain": 101.0, "remaining_days": -0.02, "gap": null, "planned": 20000.0, "produced": 20194.0, "remaining_qty": -194.0, "ct": 9.0, "pu": 800.0, "daily_obj": 8640.0, "days": {"Lundi": 3839.0, "Mardi": 800.0, "Mercredi": 2834.0, "Jeudi": 4360.0, "Vendredi": 1200.0, "Samedi": 0, "Dimanche": 0}}, {"area": "Assy", "pn": "E05896400", "imm": "Assy04", "project": "Wizmar 2", "status": "Ongoing", "prio": null, "comment": "Missing OP", "attain": 5.9, "remaining_days": 3.63, "gap": -1.63, "planned": 30000.0, "produced": 1760.0, "remaining_qty": 28240.0, "ct": 10.0, "pu": 250.0, "daily_obj": 7776.0, "days": {"Lundi": 310.0, "Mardi": 580.0, "Mercredi": 450.0, "Jeudi": 420.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Assy", "pn": "E00022943", "imm": "Assy05", "project": "Wizmar 2", "status": "Stopped", "prio": null, "comment": "PM Machine / Missing OP", "attain": 23.7, "remaining_days": 3.65, "gap": -1.65, "planned": 37200.0, "produced": 8830.0, "remaining_qty": 28370.0, "ct": 10.0, "pu": 300.0, "daily_obj": 7776.0, "days": {"Lundi": 5500.0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Assy", "pn": "E02197700", "imm": "Assy07", "project": "Wizmar 2", "status": "Planned", "prio": 1.0, "comment": "Switchi 8600 Demande  planning ", "attain": 59.6, "remaining_days": 0.37, "gap": 0.26, "planned": 7200.0, "produced": 4294.0, "remaining_qty": 2906.0, "ct": 10.0, "pu": 400.0, "daily_obj": 7776.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Assy", "pn": "E04008600", "imm": "Assy07", "project": "Wismar 3", "status": "Ongoing", "prio": 2.0, "comment": null, "attain": 54.0, "remaining_days": 1.37, "gap": null, "planned": 23100.0, "produced": 12481.0, "remaining_qty": 10619.0, "ct": 10.0, "pu": 300.0, "daily_obj": 7776.0, "days": {"Lundi": 1244.0, "Mardi": 3370.0, "Mercredi": 3570.0, "Jeudi": 4297.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Assy", "pn": "5FLV11F00", "imm": "Assy08", "project": "eBOX", "status": "Ongoing", "prio": null, "comment": null, "attain": 48.6, "remaining_days": 4.41, "gap": -2.41, "planned": 16688.0, "produced": 8117.0, "remaining_qty": 8571.0, "ct": 40.0, "pu": 112.0, "daily_obj": 1944.0, "days": {"Lundi": 1567.0, "Mardi": 1693.0, "Mercredi": 1416.0, "Jeudi": 1484.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Assy", "pn": "E05685100", "imm": "Assy09", "project": "Wave 3.4", "status": "Planned", "prio": null, "comment": null, "attain": 0.0, "remaining_days": 2.85, "gap": -0.85, "planned": 22200.0, "produced": 0.0, "remaining_qty": 22200.0, "ct": 10.0, "pu": 300.0, "daily_obj": 7776.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Assy", "pn": "E30203300", "imm": "Assy11", "project": "MAK - 3way with CPA Code A", "status": "Done", "prio": 1.0, "comment": null, "attain": 100.0, "remaining_days": 0.0, "gap": -0.16, "planned": 30000.0, "produced": 30000.0, "remaining_qty": 0.0, "ct": 5.0, "pu": 2500.0, "daily_obj": 15552.0, "days": {"Lundi": 3120.0, "Mardi": 14301.0, "Mercredi": 12579.0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Assy", "pn": "E30203500", "imm": "Assy11", "project": "MAK - 3way with CPA Code B", "status": "Ongoing", "prio": 2.0, "comment": "Manque SF 4200 Suspende", "attain": 16.0, "remaining_days": 2.16, "gap": null, "planned": 40000.0, "produced": 6411.0, "remaining_qty": 33589.0, "ct": 5.0, "pu": 2500.0, "daily_obj": 15552.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 1889.0, "Jeudi": 4522.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Assy", "pn": "E35207200", "imm": "Assy11", "project": "MAK - 2 way Without CPA Code A", "status": "Done", "prio": 3.0, "comment": "Anticipation ", "attain": 100.0, "remaining_days": 0.0, "gap": null, "planned": 43504.0, "produced": 43504.0, "remaining_qty": 0.0, "ct": 5.0, "pu": 2500.0, "daily_obj": 15552.0, "days": {"Lundi": 12234.0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Assy", "pn": "E35208300", "imm": "Assy11", "project": "MAK - 4way Without CPA Code A", "status": "Done", "prio": 4.0, "comment": null, "attain": 100.0, "remaining_days": 0.0, "gap": null, "planned": 10000.0, "produced": 9998.0, "remaining_qty": 2.0, "ct": 5.0, "pu": 2000.0, "daily_obj": 15552.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 7584.0, "Vendredi": 2414.0, "Samedi": 0, "Dimanche": 0}}, {"area": "Assy", "pn": "E30203700", "imm": "Assy12", "project": "MAK - 3way with CPA Code C", "status": "Ongoing", "prio": null, "comment": null, "attain": 59.3, "remaining_days": 2.36, "gap": -2.29, "planned": 90000.0, "produced": 53356.0, "remaining_qty": 36644.0, "ct": 5.0, "pu": 2500.0, "daily_obj": 15552.0, "days": {"Lundi": 7831.0, "Mardi": 9460.0, "Mercredi": 9302.0, "Jeudi": 10849.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Assy", "pn": "E35207600", "imm": "Assy12", "project": "MAK - 3way Without CPA Code A", "status": "Planned", "prio": null, "comment": null, "attain": 0.0, "remaining_days": 1.93, "gap": null, "planned": 30000.0, "produced": 0.0, "remaining_qty": 30000.0, "ct": 5.0, "pu": 2500.0, "daily_obj": 15552.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Assy", "pn": "E30203700", "imm": "Assy13", "project": "MAK - 3way with CPA Code C", "status": "Ongoing", "prio": 3.0, "comment": null, "attain": 38.5, "remaining_days": 1.58, "gap": -1.34, "planned": 40000.0, "produced": 15402.0, "remaining_qty": 24598.0, "ct": 5.0, "pu": 2500.0, "daily_obj": 15552.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 15402.0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Assy", "pn": "E30205000", "imm": "Assy13", "project": "MAK - 4way with CPA Code A", "status": "Done", "prio": 2.0, "comment": null, "attain": 100.0, "remaining_days": 0.0, "gap": null, "planned": 31262.0, "produced": 31262.0, "remaining_qty": 0.0, "ct": 5.0, "pu": 2000.0, "daily_obj": 15552.0, "days": {"Lundi": 3680.0, "Mardi": 14792.0, "Mercredi": 12790.0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Assy", "pn": "E35207900", "imm": "Assy13", "project": "MAK - 3way Without CPA Code B", "status": "Done", "prio": 1.0, "comment": null, "attain": 100.8, "remaining_days": -0.01, "gap": null, "planned": 25624.0, "produced": 25818.0, "remaining_qty": -194.0, "ct": 5.0, "pu": 2500.0, "daily_obj": 15552.0, "days": {"Lundi": 11468.0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Assy", "pn": "E35207200", "imm": "Assy13", "project": "MAK - 2 way Without CPA Code A", "status": "Planned", "prio": 4.0, "comment": null, "attain": 0.0, "remaining_days": 1.29, "gap": null, "planned": 20000.0, "produced": 0.0, "remaining_qty": 20000.0, "ct": 5.0, "pu": 2500.0, "daily_obj": 15552.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Assy", "pn": "E35207400", "imm": "Assy13", "project": "MAK - 2 way Without CPA Code B", "status": "Planned", "prio": 5.0, "comment": null, "attain": 0.0, "remaining_days": 0.48, "gap": null, "planned": 7500.0, "produced": 0.0, "remaining_qty": 7500.0, "ct": 5.0, "pu": 2500.0, "daily_obj": 15552.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}, {"area": "Assy", "pn": "E57998100", "imm": "Assy16", "project": "eBOX", "status": "Not started", "prio": null, "comment": null, "attain": 11.9, "remaining_days": 1.45, "gap": 0.55, "planned": 16002.0, "produced": 1899.0, "remaining_qty": 14103.0, "ct": 8.0, "pu": 63.0, "daily_obj": 9720.0, "days": {"Lundi": 0, "Mardi": 0, "Mercredi": 0, "Jeudi": 0, "Vendredi": 0, "Samedi": 0, "Dimanche": 0}}];
-const DAY_ORDER = ["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi","Dimanche"];
-const COLORS = {good:'#1a9e5c', warn:'#d98a10', bad:'#d13b3b', neutral:'#8892a6', accent:'#2f6feb', accent2:'#8172B3'};
+/* ======================= CONFIG ======================= */
+// Google Sheet ID (from the sheet's URL)
+const SHEET_ID = "1X22404pVovt1IVolZHzq0aQ5D2KbFzZAD0M-NUpvs3Q";
 
-function fmtNum(v){
-  if(v===null||v===undefined||isNaN(v)) return '—';
-  if(Math.abs(v)>=1e6) return (v/1e6).toFixed(1)+'M';
-  if(Math.abs(v)>=1e3) return (v/1e3).toFixed(1)+'K';
-  return Math.round(v).toLocaleString();
-}
-function statusClass(s){
-  if(!s) return 'b-planned';
-  const k = s.toLowerCase();
-  if(k==='done') return 'b-done';
-  if(k.includes('ongoing')||k.includes('og (')) return 'b-ongoing';
-  if(k==='planned') return 'b-planned';
-  if(k==='stopped') return 'b-stopped';
-  if(k==='canceled') return 'b-canceled';
-  if(k==='missed') return 'b-missed';
-  return 'b-notstarted';
-}
-function attainColor(a){
-  if(a===null||a===undefined) return COLORS.neutral;
-  if(a>=90) return COLORS.good;
-  if(a>=60) return COLORS.warn;
-  return COLORS.bad;
-}
+// Tab names to pull, newest last. Add a new week here the day you create its tab —
+// nothing else in this file needs to change.
+const WEEK_TABS = ["Wk38", "Wk39"];
 
+// Auto-refresh interval (ms). 5 minutes.
+const AUTO_REFRESH_MS = 5 * 60 * 1000;
+
+/* Column layout of each week tab (0-indexed, header row = row 1) */
+const COL = {
+  area: 0, pnImm: 1, opFixe: 2, col23: 3, urg: 4, project: 5, serial: 6,
+  status: 7, prio: 8, comment: 9, attain: 10, remainDays: 11, gap: 12,
+  plannedQty: 13, producedQty: 14, remainingQty: 15, learPN: 16, imm: 17,
+  pu: 18, moldId: 19, toolCav: 20, ct: 21, planningRaw: 22, nberPlt: 23,
+  material: 24, dailyObj: 25, oee: 26, anticipation: 27,
+  lundi: 28, mardi: 29, mercredi: 30, jeudi: 31, vendredi: 32, samedi: 33, dimanche: 34
+};
+const DAY_COLS = [
+  ["Lundi", COL.lundi], ["Mardi", COL.mardi], ["Mercredi", COL.mercredi],
+  ["Jeudi", COL.jeudi], ["Vendredi", COL.vendredi], ["Samedi", COL.samedi], ["Dimanche", COL.dimanche]
+];
+/* ======================================================= */
+
+let weeksData = {};   // { weekName: { rows: [...], dailyTotals, dailyObjTotal } }
+let currentWeek = null;
 let charts = {};
+let sortState = { key: null, dir: 1 };
 
-function uniqueVals(field){
-  return [...new Set(DATA.map(d=>d[field]).filter(v=>v!==null&&v!==undefined))].sort();
+function csvUrl(sheetName){
+  return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
 }
 
-function populateFilters(){
-  const areaSel = document.getElementById('f-area');
-  uniqueVals('area').forEach(v=>{
-    const o=document.createElement('option'); o.value=v; o.textContent=v; areaSel.appendChild(o);
-  });
-  const statusSel = document.getElementById('f-status');
-  uniqueVals('status').forEach(v=>{
-    const o=document.createElement('option'); o.value=v; o.textContent=v; statusSel.appendChild(o);
-  });
-  const prioSel = document.getElementById('f-prio');
-  uniqueVals('prio').forEach(v=>{
-    const o=document.createElement('option'); o.value=v; o.textContent='Prio '+v; prioSel.appendChild(o);
-  });
-  ['f-area','f-status','f-prio'].forEach(id=>document.getElementById(id).addEventListener('change', render));
-  document.getElementById('f-search').addEventListener('input', render);
+function parseNum(v){
+  if(v === null || v === undefined) return null;
+  let s = String(v).trim();
+  if(s === "" || s === "#N/A" || s === "-") return null;
+  s = s.replace(/\s/g,"").replace(/%/g,"");
+  if(/^-?\d+,\d+$/.test(s)) s = s.replace(",", ".");      // French decimal comma
+  else s = s.replace(/,/g, "");                            // thousands separator
+  const n = parseFloat(s);
+  return isNaN(n) ? null : n;
 }
 
-function getFiltered(){
-  const area = document.getElementById('f-area').value;
-  const status = document.getElementById('f-status').value;
-  const prio = document.getElementById('f-prio').value;
-  const search = document.getElementById('f-search').value.trim().toLowerCase();
-  return DATA.filter(d=>{
-    if(area!=='all' && d.area!==area) return false;
-    if(status!=='all' && d.status!==status) return false;
-    if(prio!=='all' && String(d.prio)!==prio) return false;
-    if(search){
-      const hay = [d.pn,d.imm,d.project,d.comment].filter(Boolean).join(' ').toLowerCase();
-      if(!hay.includes(search)) return false;
+function statusClass(status){
+  const s = (status || "").toLowerCase().replace(/\s+/g,"");
+  if(s === "done") return "b-done";
+  if(s === "ongoing") return "b-ongoing";
+  if(s === "planned") return "b-planned";
+  if(s === "stopped") return "b-stopped";
+  if(s === "canceled" || s === "cancelled") return "b-canceled";
+  if(s === "unfinished") return "b-unfinished";
+  if(s === "notstarted") return "b-notstarted";
+  return "b-planned";
+}
+
+async function fetchWeek(sheetName){
+  const res = await fetch(csvUrl(sheetName), {cache:"no-store"});
+  if(!res.ok) throw new Error(`HTTP ${res.status} loading "${sheetName}"`);
+  const text = await res.text();
+  if(text.trim().startsWith("<")) throw new Error(`"${sheetName}" tab not readable — check sharing settings`);
+  const parsed = Papa.parse(text, {skipEmptyLines:false});
+  const rows = parsed.data;
+
+  const out = [];
+  let lastArea = "";
+  for(let i = 1; i < rows.length; i++){        // row 0 = header
+    const r = rows[i];
+    if(!r || r.length < 2) continue;
+    const pn = (r[COL.pnImm] || "").trim();
+    if(!pn) continue;                            // blank PN/IMM = not a data row
+    const area = (r[COL.area] || "").trim();
+    if(area) lastArea = area;
+
+    const days = {};
+    let dayTotal = 0;
+    for(const [label, idx] of DAY_COLS){
+      const v = parseNum(r[idx]);
+      days[label] = v;
+      if(v) dayTotal += v;
     }
-    return true;
-  });
-}
 
-function renderKPIs(rows){
-  const planned = rows.reduce((s,r)=>s+(r.planned||0),0);
-  const produced = rows.reduce((s,r)=>s+(r.produced||0),0);
-  const remaining = rows.reduce((s,r)=>s+(r.remaining_qty||0),0);
-  const overallAttain = planned>0 ? (produced/planned*100) : 0;
-  const behind = rows.filter(r=>r.status!=='Done' && r.status!=='Canceled' && (r.attain===null || r.attain<80)).length;
-  const stoppedCanceled = rows.filter(r=>['Stopped','Canceled','Missed'].includes(r.status)).length;
+    out.push({
+      area: lastArea || "—",
+      pn,
+      project: (r[COL.project] || "").trim(),
+      status: (r[COL.status] || "").trim() || "—",
+      prio: r[COL.prio] || "",
+      comment: (r[COL.comment] || "").trim(),
+      attain: parseNum(r[COL.attain]),
+      planned: parseNum(r[COL.plannedQty]),
+      produced: parseNum(r[COL.producedQty]),
+      remaining: parseNum(r[COL.remainingQty]),
+      ct: parseNum(r[COL.ct]),
+      dailyObj: parseNum(r[COL.dailyObj]),
+      days, dayTotal
+    });
+  }
 
-  const kpiRow = document.getElementById('kpi-row');
-  const attCls = overallAttain>=90?'good':(overallAttain>=70?'warn':'bad');
-  kpiRow.innerHTML = `
-    <div class="kpi"><div class="lbl">Lines shown</div><div class="val">${rows.length}</div></div>
-    <div class="kpi"><div class="lbl">Overall Attainment</div><div class="val ${attCls}">${overallAttain.toFixed(1)}%</div></div>
-    <div class="kpi"><div class="lbl">Planned Qty</div><div class="val">${fmtNum(planned)}</div></div>
-    <div class="kpi"><div class="lbl">Produced Qty</div><div class="val">${fmtNum(produced)}</div></div>
-    <div class="kpi"><div class="lbl">Remaining Qty</div><div class="val">${fmtNum(remaining)}</div></div>
-    <div class="kpi"><div class="lbl">Lines Behind (&lt;80%)</div><div class="val ${behind>0?'bad':'good'}">${behind}</div></div>
-    <div class="kpi"><div class="lbl">Stopped / Canceled</div><div class="val ${stoppedCanceled>0?'bad':'good'}">${stoppedCanceled}</div></div>
-  `;
-}
-
-function renderDailyChart(rows){
-  const totals = DAY_ORDER.map(day=>rows.reduce((s,r)=>s+(r.days[day]||0),0));
-  const objTotal = rows.reduce((s,r)=>s+(r.daily_obj||0),0);
-  const objLine = DAY_ORDER.map(()=>objTotal);
-  const ctx = document.getElementById('chart-daily').getContext('2d');
-  if(charts.daily) charts.daily.destroy();
-  charts.daily = new Chart(ctx,{
-    type:'bar',
-    data:{ labels:DAY_ORDER, datasets:[
-      {label:'Produced', data:totals, backgroundColor:COLORS.accent+'cc', borderRadius:4},
-      {label:'Combined daily objective', data:objLine, type:'line', borderColor:COLORS.bad, borderDash:[6,4], pointRadius:0, borderWidth:2}
-    ]},
-    options:{ responsive:true, maintainAspectRatio:false,
-      plugins:{legend:{position:'top', labels:{usePointStyle:true, boxWidth:8, font:{size:11}}}},
-      scales:{ y:{beginAtZero:true, ticks:{callback:v=>fmtNum(v)}}, x:{grid:{display:false}} }
+  const dailyTotals = {};
+  let dailyObjTotal = 0;
+  for(const [label] of DAY_COLS) dailyTotals[label] = 0;
+  for(const row of out){
+    for(const [label] of DAY_COLS){
+      if(row.days[label]) dailyTotals[label] += row.days[label];
     }
+    if(row.dailyObj) dailyObjTotal += row.dailyObj;
+  }
+
+  return { rows: out, dailyTotals, dailyObjTotal };
+}
+
+async function loadAll(){
+  setStatus("Loading…", "");
+  document.getElementById("banner").style.display = "none";
+  try{
+    const results = await Promise.all(WEEK_TABS.map(w => fetchWeek(w).then(d => [w, d])));
+    weeksData = Object.fromEntries(results);
+    if(!currentWeek || !weeksData[currentWeek]) currentWeek = WEEK_TABS[WEEK_TABS.length - 1];
+    populateWeekSelect();
+    render();
+    setStatus("Updated " + new Date().toLocaleTimeString(), "ok");
+    document.getElementById("lastUpdated").textContent = "last updated " + new Date().toLocaleString();
+  }catch(err){
+    console.error(err);
+    setStatus("Fetch failed — see banner", "err");
+    showBanner("Couldn't load live data: " + err.message +
+      ". Make sure the Google Sheet is shared as \"Anyone with the link — Viewer\", and that the tab names above match exactly (case-sensitive).");
+  }
+}
+
+function setStatus(msg, cls){
+  const el = document.getElementById("status");
+  el.textContent = msg;
+  el.className = cls || "";
+}
+function showBanner(msg){
+  const b = document.getElementById("banner");
+  b.textContent = msg;
+  b.style.display = "block";
+}
+
+function populateWeekSelect(){
+  const sel = document.getElementById("weekSelect");
+  sel.innerHTML = "";
+  for(const w of WEEK_TABS){
+    const opt = document.createElement("option");
+    opt.value = w; opt.textContent = w;
+    if(w === currentWeek) opt.selected = true;
+    sel.appendChild(opt);
+  }
+}
+
+function render(){
+  const wk = weeksData[currentWeek];
+  if(!wk) return;
+  const rows = wk.rows;
+  const hasAnyStatus = rows.some(r => r.status && r.status !== "—");
+
+  renderKPIs(rows, hasAnyStatus);
+  renderDailyChart(wk);
+  renderStatusChart(rows);
+  renderAreaChart(rows);
+  renderWorstChart(rows);
+  renderAttentionTable(rows);
+  renderFullTable(rows);
+
+  const banner = document.getElementById("banner");
+  if(!hasAnyStatus){
+    showBanner(`${currentWeek} hasn't started yet — showing the planned baseline only (no status recorded).`);
+  } else {
+    banner.style.display = "none";
+  }
+}
+
+function renderKPIs(rows, hasStatus){
+  const planned = rows.reduce((s,r) => s + (r.planned || 0), 0);
+  const produced = rows.reduce((s,r) => s + (r.produced || 0), 0);
+  const remaining = rows.reduce((s,r) => s + (r.remaining || 0), 0);
+  const overallAttain = planned > 0 ? (produced / planned * 100) : 0;
+  const behind80 = rows.filter(r => r.attain !== null && r.attain < 80 &&
+                    !["done","canceled","cancelled"].includes((r.status||"").toLowerCase())).length;
+  const stoppedCanceled = rows.filter(r => ["stopped","canceled","cancelled"].includes((r.status||"").toLowerCase())).length;
+
+  const kpis = [
+    ["Overall Attainment", overallAttain.toFixed(1) + "%"],
+    ["Planned Qty (k)", planned.toFixed(1)],
+    ["Produced Qty (k)", produced.toFixed(1)],
+    ["Remaining Qty (k)", remaining.toFixed(1)],
+    ["Lines Behind 80%", behind80],
+    ["Stopped / Canceled", stoppedCanceled],
+    ["Total Lines", rows.length],
+  ];
+  const el = document.getElementById("kpis");
+  el.innerHTML = kpis.map(([label, value]) =>
+    `<div class="kpi"><div class="label">${label}</div><div class="value">${value}</div></div>`).join("");
+}
+
+function destroyChart(key){ if(charts[key]){ charts[key].destroy(); delete charts[key]; } }
+
+function renderDailyChart(wk){
+  destroyChart("daily");
+  const labels = DAY_COLS.map(d => d[0]);
+  const produced = labels.map(l => Math.round(wk.dailyTotals[l] || 0));
+  const objective = labels.map(() => Math.round(wk.dailyObjTotal || 0));
+  const ctx = document.getElementById("dailyChart");
+  charts.daily = new Chart(ctx, {
+    data: {
+      labels,
+      datasets: [
+        {type:"bar", label:"Produced", data:produced, backgroundColor:"#38bdf8", borderRadius:4},
+        {type:"line", label:"Combined Objective", data:objective, borderColor:"#f59e0b", borderWidth:2, pointRadius:0, tension:0.2}
+      ]
+    },
+    options: {responsive:true, plugins:{legend:{labels:{color:"#e2e8f0"}}},
+      scales:{x:{ticks:{color:"#94a3b8"},grid:{color:"#2d3b52"}}, y:{ticks:{color:"#94a3b8"},grid:{color:"#2d3b52"}}}}
   });
 }
 
 function renderStatusChart(rows){
+  destroyChart("status");
   const counts = {};
-  rows.forEach(r=>{ counts[r.status||'Unknown'] = (counts[r.status||'Unknown']||0)+1; });
+  for(const r of rows){ counts[r.status] = (counts[r.status]||0)+1; }
   const labels = Object.keys(counts);
-  const vals = Object.values(counts);
-  const palette = labels.map(l=>{
-    const c = statusClass(l);
-    if(c==='b-done') return COLORS.good;
-    if(c==='b-ongoing') return COLORS.warn;
-    if(c==='b-stopped'||c==='b-canceled'||c==='b-missed') return COLORS.bad;
-    return COLORS.neutral;
-  });
-  document.getElementById('status-count').textContent = rows.length+' lines';
-  const ctx = document.getElementById('chart-status').getContext('2d');
-  if(charts.status) charts.status.destroy();
-  charts.status = new Chart(ctx,{
-    type:'doughnut',
-    data:{ labels, datasets:[{ data:vals, backgroundColor:palette.map(c=>c+'cc'), borderColor:'#ffffff', borderWidth:2 }] },
-    options:{ responsive:true, maintainAspectRatio:false, cutout:'58%',
-      plugins:{ legend:{position:'right', labels:{usePointStyle:true, boxWidth:8, font:{size:11}}},
-        tooltip:{callbacks:{label:(c)=>{ const tot=vals.reduce((a,b)=>a+b,0); return `${c.label}: ${c.parsed} (${(c.parsed/tot*100).toFixed(0)}%)`; }}} }
-    }
+  const data = Object.values(counts);
+  const palette = {done:"#22c55e",ongoing:"#3b82f6",planned:"#71717a",stopped:"#ef4444",
+    canceled:"#fb923c",cancelled:"#fb923c",unfinished:"#f59e0b","not started":"#818cf8","—":"#475569"};
+  const colors = labels.map(l => palette[l.toLowerCase()] || "#a78bfa");
+  charts.status = new Chart(document.getElementById("statusChart"), {
+    type:"doughnut",
+    data:{labels, datasets:[{data, backgroundColor:colors}]},
+    options:{responsive:true, plugins:{legend:{position:"bottom",labels:{color:"#e2e8f0",boxWidth:12,font:{size:11}}}}}
   });
 }
 
 function renderAreaChart(rows){
-  const areas = uniqueVals('area');
-  const byArea = areas.map(a=>{
-    const sub = rows.filter(r=>r.area===a);
-    const planned = sub.reduce((s,r)=>s+(r.planned||0),0);
-    const produced = sub.reduce((s,r)=>s+(r.produced||0),0);
-    return planned>0 ? produced/planned*100 : 0;
+  destroyChart("area");
+  const byArea = {};
+  for(const r of rows){
+    if(!byArea[r.area]) byArea[r.area] = {planned:0, produced:0};
+    byArea[r.area].planned += r.planned || 0;
+    byArea[r.area].produced += r.produced || 0;
+  }
+  const labels = Object.keys(byArea);
+  const data = labels.map(a => {
+    const v = byArea[a];
+    return v.planned > 0 ? +(v.produced/v.planned*100).toFixed(1) : 0;
   });
-  const ctx = document.getElementById('chart-area').getContext('2d');
-  if(charts.area) charts.area.destroy();
-  charts.area = new Chart(ctx,{
-    type:'bar',
-    data:{ labels:areas, datasets:[{ data:byArea, backgroundColor: byArea.map(v=>attainColor(v)+'cc'), borderRadius:4 }] },
-    options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y',
-      plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>c.parsed.x.toFixed(1)+'%'}}},
-      scales:{ x:{beginAtZero:true, max:110, ticks:{callback:v=>v+'%'}} }
-    }
+  charts.area = new Chart(document.getElementById("areaChart"), {
+    type:"bar",
+    data:{labels, datasets:[{label:"Attainment %", data, backgroundColor:"#38bdf8", borderRadius:4}]},
+    options:{indexAxis:"y", responsive:true, plugins:{legend:{display:false}},
+      scales:{x:{max:120,ticks:{color:"#94a3b8"},grid:{color:"#2d3b52"}}, y:{ticks:{color:"#94a3b8"},grid:{display:false}}}}
   });
 }
 
 function renderWorstChart(rows){
-  const cand = rows.filter(r=>r.status!=='Done' && r.status!=='Canceled' && r.attain!==null)
-                    .sort((a,b)=>a.attain-b.attain).slice(0,10);
-  const labels = cand.map(r=>`${r.imm} · ${r.pn}`);
-  const vals = cand.map(r=>r.attain);
-  const ctx = document.getElementById('chart-worst').getContext('2d');
-  if(charts.worst) charts.worst.destroy();
-  charts.worst = new Chart(ctx,{
-    type:'bar',
-    data:{ labels, datasets:[{ data:vals, backgroundColor:vals.map(v=>attainColor(v)+'cc'), borderRadius:4 }] },
-    options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y',
-      plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>c.parsed.x.toFixed(1)+'%'}}},
-      scales:{ x:{beginAtZero:true, max:100, ticks:{callback:v=>v+'%'}}, y:{ticks:{font:{size:10.5}}} }
-    }
+  destroyChart("worst");
+  const active = rows.filter(r => r.attain !== null &&
+    !["done","canceled","cancelled"].includes((r.status||"").toLowerCase()));
+  const worst = [...active].sort((a,b) => a.attain - b.attain).slice(0,10);
+  charts.worst = new Chart(document.getElementById("worstChart"), {
+    type:"bar",
+    data:{labels:worst.map(r => r.pn), datasets:[{label:"Attain %", data:worst.map(r => r.attain), backgroundColor:"#ef4444", borderRadius:4}]},
+    options:{indexAxis:"y", responsive:true, plugins:{legend:{display:false}},
+      scales:{x:{max:100,ticks:{color:"#94a3b8"},grid:{color:"#2d3b52"}}, y:{ticks:{color:"#94a3b8",font:{size:10}},grid:{display:false}}}}
   });
 }
 
-function renderWatchTable(rows){
-  const watch = rows.filter(r=> r.comment && r.status!=='Done' && r.status!=='Canceled')
-                     .sort((a,b)=>(a.prio||99)-(b.prio||99));
-  document.getElementById('watch-count').textContent = watch.length+' open items';
-  const tbody = document.querySelector('#watch-table tbody');
-  if(watch.length===0){ tbody.innerHTML = '<tr><td colspan="9" class="empty">No open issues for current filter — nice.</td></tr>'; return; }
-  tbody.innerHTML = watch.map(r=>`
-    <tr class="watch-row">
-      <td>${r.area||''}</td><td>${r.imm||''}</td><td>${r.pn||''}</td><td>${r.project||''}</td>
-      <td><span class="badge ${statusClass(r.status)}">${r.status||''}</span></td>
-      <td class="prio-tag">${r.prio!==null?r.prio:''}</td>
-      <td>${r.attain!==null?r.attain.toFixed(0)+'%':'—'}</td>
-      <td>${fmtNum(r.remaining_qty)}</td>
-      <td>${r.comment||''}</td>
-    </tr>
-  `).join('');
+function renderAttentionTable(rows){
+  const attn = rows.filter(r => {
+    const s = (r.status||"").toLowerCase();
+    return r.comment || (s && s !== "done" && s !== "canceled" && s !== "cancelled" && s !== "—");
+  }).sort((a,b) => (parseNum(a.prio) ?? 99) - (parseNum(b.prio) ?? 99));
+
+  const tbody = document.querySelector("#attnTable tbody");
+  tbody.innerHTML = attn.map(r => `<tr>
+    <td>${r.area}</td><td>${r.pn}</td><td>${r.project}</td>
+    <td><span class="badge ${statusClass(r.status)}">${r.status}</span></td>
+    <td>${r.prio}</td><td>${r.attain !== null ? r.attain.toFixed(0)+"%" : "—"}</td>
+    <td class="attn">${r.comment}</td>
+  </tr>`).join("") || `<tr><td colspan="7" style="color:var(--muted)">Nothing flagged.</td></tr>`;
 }
 
-let sortState = {field:null, dir:'asc'};
-function renderMainTable(rows){
-  document.getElementById('row-count').textContent = rows.length+' lines';
-  let sorted = [...rows];
-  if(sortState.field){
-    sorted.sort((a,b)=>{
-      let av=a[sortState.field], bv=b[sortState.field];
-      if(av===null||av===undefined) av = (typeof bv==='number')?-Infinity:'';
-      if(bv===null||bv===undefined) bv = (typeof av==='number')?-Infinity:'';
-      const cmp = av<bv?-1:av>bv?1:0;
-      return sortState.dir==='asc'?cmp:-cmp;
+let fullRowsCache = [];
+function renderFullTable(rows){
+  fullRowsCache = rows;
+  populateFilterOptions(rows);
+  applyFiltersAndRender();
+}
+
+function populateFilterOptions(rows){
+  const fill = (id, values) => {
+    const sel = document.getElementById(id);
+    const current = sel.value;
+    sel.innerHTML = `<option value="">${sel.id === "areaFilter" ? "All Areas" : sel.id === "statusFilter" ? "All Statuses" : "All Prio"}</option>` +
+      values.map(v => `<option value="${v}">${v}</option>`).join("");
+    sel.value = current;
+  };
+  fill("areaFilter", [...new Set(rows.map(r=>r.area))].sort());
+  fill("statusFilter", [...new Set(rows.map(r=>r.status))].sort());
+  fill("prioFilter", [...new Set(rows.map(r=>r.prio).filter(p=>p!==""))].sort((a,b)=>a-b));
+}
+
+function applyFiltersAndRender(){
+  const q = document.getElementById("searchBox").value.toLowerCase();
+  const area = document.getElementById("areaFilter").value;
+  const status = document.getElementById("statusFilter").value;
+  const prio = document.getElementById("prioFilter").value;
+
+  let rows = fullRowsCache.filter(r => {
+    if(area && r.area !== area) return false;
+    if(status && r.status !== status) return false;
+    if(prio && String(r.prio) !== prio) return false;
+    if(q && !(r.pn.toLowerCase().includes(q) || r.project.toLowerCase().includes(q))) return false;
+    return true;
+  });
+
+  if(sortState.key){
+    rows = [...rows].sort((a,b) => {
+      let va = a[sortState.key], vb = b[sortState.key];
+      if(typeof va === "string") va = va.toLowerCase();
+      if(typeof vb === "string") vb = vb.toLowerCase();
+      if(va === null || va === undefined) va = -Infinity;
+      if(vb === null || vb === undefined) vb = -Infinity;
+      return va > vb ? sortState.dir : va < vb ? -sortState.dir : 0;
     });
   }
-  const tbody = document.querySelector('#main-table tbody');
-  if(sorted.length===0){ tbody.innerHTML = '<tr><td colspan="12" class="empty">No lines match the current filters.</td></tr>'; return; }
-  tbody.innerHTML = sorted.map(r=>{
-    const a = r.attain;
-    const aCol = attainColor(a);
-    return `<tr>
-      <td>${r.area||''}</td><td>${r.imm||''}</td><td>${r.pn||''}</td><td>${r.project||''}</td>
-      <td><span class="badge ${statusClass(r.status)}">${r.status||''}</span></td>
-      <td>${r.prio!==null?r.prio:''}</td>
-      <td><span class="attain-bar"><span class="attain-fill" style="width:${a!==null?Math.min(a,100):0}%; background:${aCol};"></span></span>${a!==null?a.toFixed(0)+'%':'—'}</td>
-      <td>${fmtNum(r.planned)}</td><td>${fmtNum(r.produced)}</td><td>${fmtNum(r.remaining_qty)}</td>
-      <td>${r.ct!==null?r.ct.toFixed(1):'—'}</td><td>${fmtNum(r.daily_obj)}</td>
-    </tr>`;
-  }).join('');
+
+  const tbody = document.querySelector("#fullTable tbody");
+  tbody.innerHTML = rows.map(r => `<tr>
+    <td>${r.area}</td><td>${r.pn}</td><td>${r.project}</td>
+    <td><span class="badge ${statusClass(r.status)}">${r.status}</span></td>
+    <td>${r.prio}</td>
+    <td>${r.attain !== null ? r.attain.toFixed(0)+"%" : "—"}</td>
+    <td>${r.planned ?? "—"}</td><td>${r.produced ?? "—"}</td><td>${r.remaining ?? "—"}</td>
+    <td>${r.ct ?? "—"}</td><td>${r.dailyObj ?? "—"}</td>
+    <td>${r.comment}</td>
+  </tr>`).join("");
 }
 
-document.querySelectorAll('#main-table thead th').forEach(th=>{
-  th.addEventListener('click', ()=>{
-    const f = th.dataset.f;
-    if(sortState.field===f){ sortState.dir = sortState.dir==='asc'?'desc':'asc'; }
-    else { sortState.field=f; sortState.dir='asc'; }
-    render();
+/* events */
+document.getElementById("weekSelect").addEventListener("change", e => { currentWeek = e.target.value; render(); });
+document.getElementById("refreshBtn").addEventListener("click", loadAll);
+document.getElementById("searchBox").addEventListener("input", applyFiltersAndRender);
+document.getElementById("areaFilter").addEventListener("change", applyFiltersAndRender);
+document.getElementById("statusFilter").addEventListener("change", applyFiltersAndRender);
+document.getElementById("prioFilter").addEventListener("change", applyFiltersAndRender);
+document.querySelectorAll("#fullTable th[data-k]").forEach(th => {
+  th.addEventListener("click", () => {
+    const k = th.dataset.k;
+    sortState.dir = (sortState.key === k) ? -sortState.dir : 1;
+    sortState.key = k;
+    applyFiltersAndRender();
   });
 });
 
-function render(){
-  const rows = getFiltered();
-  renderKPIs(rows);
-  renderDailyChart(rows);
-  renderStatusChart(rows);
-  renderAreaChart(rows);
-  renderWorstChart(rows);
-  renderWatchTable(rows);
-  renderMainTable(rows);
-}
-
-populateFilters();
-render();
+loadAll();
+setInterval(loadAll, AUTO_REFRESH_MS);
 </script>
 </body>
 </html>
