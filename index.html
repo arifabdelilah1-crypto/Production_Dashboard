@@ -252,7 +252,7 @@ function findColIndex(H, needles){
 }
 function buildColumnMap(headerRow){
   const H = (headerRow || []).map(normHeader);
-  return {
+  const M = {
     area: findColIndex(H, ["area"]),
     pnImm: findColIndex(H, ["pn / imm", "pn/imm", "pn imm"]),
     project: findColIndex(H, ["project"]),
@@ -265,7 +265,8 @@ function buildColumnMap(headerRow){
     remainingQty: findColIndex(H, ["remaining quan", "remaining qty", "remaining quantity"]),
     ct: findColIndex(H, ["ct (s)", "ct(s)", "ct(s )", "ct "]) !== -1
       ? findColIndex(H, ["ct (s)", "ct(s)", "ct(s )", "ct "])
-      : H.findIndex(h => h === "ct" || /^ct\b/.test(h)),    dailyObj: findColIndex(H, ["daily objectif", "daily obj", "objectif"]),
+      : H.findIndex(h => h === "ct" || /^ct\b/.test(h)),
+    dailyObj: findColIndex(H, ["daily objectif", "daily obj", "objectif"]),
     oee: findColIndex(H, ["%oee", "oee"]),
     lundi: findColIndex(H, ["lundi"]),
     mardi: findColIndex(H, ["mardi"]),
@@ -275,6 +276,29 @@ function buildColumnMap(headerRow){
     samedi: findColIndex(H, ["samedi"]),
     dimanche: findColIndex(H, ["dimanche"]),
   };
+
+  // Confirmed against real data: several header cells in this sheet are genuinely
+  // blank (not a parsing bug — verified by decoding an actual data row), so text
+  // search can never find them. These fixed positions are the verified fallback,
+  // only applied when text search comes up empty AND the row is wide enough that
+  // the position is plausible (guards against applying this to an unrelated sheet).
+  const FALLBACK_POSITIONS = {
+    area:0, pnImm:1, project:5, status:7, prio:8, comment:9,
+    attain:10, plannedQty:13, producedQty:14, remainingQty:15,
+    ct:22, dailyObj:26, oee:27,
+    lundi:29, mardi:30, mercredi:31, jeudi:32, vendredi:33, samedi:34, dimanche:35
+  };
+  const usedFallback = [];
+  if(H.length >= 36){
+    for(const [field, pos] of Object.entries(FALLBACK_POSITIONS)){
+      if(M[field] === -1){
+        M[field] = pos;
+        usedFallback.push(field);
+      }
+    }
+  }
+  M.__usedFallback = usedFallback;
+  return M;
 }
 // Fields we actually rely on for KPIs/charts — used to warn when detection fails.
 const CRITICAL_FIELDS = ["plannedQty","producedQty","remainingQty","attain","oee","dailyObj","ct"];
@@ -450,7 +474,8 @@ function renderDebugPanel(){
   </div>`;
 
   const rows = data.header.map((h, i) => {
-    const fieldsHere = Object.entries(data.colMap).filter(([,idx]) => idx === i).map(([f]) => f);
+    const fieldsHere = Object.entries(data.colMap).filter(([k,idx]) => k !== "__usedFallback" && idx === i)
+      .map(([f]) => (data.colMap.__usedFallback||[]).includes(f) ? f + " (fallback)" : f);
     const tag = fieldsHere.length ? `→ <b style="color:#4ade80">${fieldsHere.join(", ")}</b>` : "";
     return `<tr><td>${i}</td><td>${(h||"").toString().replace(/</g,"&lt;")||"<i>(empty)</i>"}</td><td>${tag}</td></tr>`;
   }).join("");
@@ -742,3 +767,4 @@ document.querySelectorAll("#fullTable th[data-k]").forEach(th=>{
 </script>
 </body>
 </html>
+
