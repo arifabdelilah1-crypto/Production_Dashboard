@@ -91,8 +91,8 @@
 
 <div id="loginScreen">
   <div id="loginBox">
-    <h2>🔒 Production Monitoring Dashboard</h2>
-    <p>Enter the access password to view live production data. lear2026</p>
+    <h2>🔒 Lear CS Production Dashboard</h2>
+    <p>Enter the access password to view live production data.</p>
     <input type="password" id="pwInput" placeholder="Password" autocomplete="current-password">
     <button class="primary" id="pwBtn">Unlock</button>
     <div id="loginErr"></div>
@@ -119,7 +119,13 @@
 
 <main>
   <div class="banner" id="banner" style="display:none;"></div>
+  <div class="banner" id="missingBanner" style="display:none;background:#3f0d0d;border-color:#7c1d1d;color:#fecaca;"></div>
   <div class="alertsPanel" id="alertsPanel"><h3>⚠ New since last refresh</h3><div id="alertsList"></div></div>
+
+  <div class="panel" style="margin-bottom:16px;padding:10px 14px;">
+    <button class="ghost" id="debugToggle" style="width:100%;text-align:left;">🔧 Data debug — raw header row &amp; column mapping for the current week (tap to expand)</button>
+    <div id="debugBody" style="display:none;margin-top:10px;overflow:auto;max-height:300px;"></div>
+  </div>
 
   <div class="filterBar">
     <input type="text" id="gSearch" placeholder="Search PN / Project / Machine...">
@@ -161,7 +167,7 @@
   </div>
 
   <div class="panel" style="margin-bottom:14px;">
-    <h2>Needs Plant Attention <span class="panel-h">— open comments or non-Done/Canceled, sorted by priority</span></h2>
+    <h2>Needs plant Attention <span class="panel-h">— open comments or non-Done/Canceled, sorted by priority</span></h2>
     <div class="tablewrap">
       <table id="attnTable">
         <thead><tr><th>Area</th><th>Machine</th><th>PN / IMM</th><th>Project</th><th>Status</th><th>Prio</th><th>Attain%</th><th>Comment</th></tr></thead>
@@ -253,12 +259,13 @@ function buildColumnMap(headerRow){
     status: findColIndex(H, ["status"]),
     prio: findColIndex(H, ["prio"]),
     comment: findColIndex(H, ["comment"]),
-    attain: findColIndex(H, ["attain"]),
-    plannedQty: findColIndex(H, ["planned quan"]),
-    producedQty: findColIndex(H, ["cummul"]),
-    remainingQty: findColIndex(H, ["remaining quan"]),
-    ct: findColIndex(H, ["ct (s)", "ct(s)", "ct (s)"]),
-    dailyObj: findColIndex(H, ["daily objectif", "daily obj"]),
+    attain: findColIndex(H, ["weekly attain", "attain %", "attain"]),
+    plannedQty: findColIndex(H, ["planned quan", "planned qty", "planned quantity", "planned"]),
+    producedQty: findColIndex(H, ["cummul produced", "cummul", "produced quan", "produced qty", "produced quantity", "produced"]),
+    remainingQty: findColIndex(H, ["remaining quan", "remaining qty", "remaining quantity"]),
+    ct: findColIndex(H, ["ct (s)", "ct(s)", "ct(s )", "ct "]) !== -1
+      ? findColIndex(H, ["ct (s)", "ct(s)", "ct(s )", "ct "])
+      : H.findIndex(h => h === "ct" || /^ct\b/.test(h)),    dailyObj: findColIndex(H, ["daily objectif", "daily obj", "objectif"]),
     oee: findColIndex(H, ["%oee", "oee"]),
     lundi: findColIndex(H, ["lundi"]),
     mardi: findColIndex(H, ["mardi"]),
@@ -269,6 +276,8 @@ function buildColumnMap(headerRow){
     dimanche: findColIndex(H, ["dimanche"]),
   };
 }
+// Fields we actually rely on for KPIs/charts — used to warn when detection fails.
+const CRITICAL_FIELDS = ["plannedQty","producedQty","remainingQty","attain","oee","dailyObj","ct"];
 
 /* ---------------- parsing helpers ---------------- */
 function csvUrl(sheetName){
@@ -320,9 +329,11 @@ async function fetchWeek(sheetName){
   const text = await res.text();
   if(text.trim().startsWith("<")) throw new Error(`"${sheetName}" tab not readable — check sharing settings`);
   const rows = Papa.parse(text, {skipEmptyLines:false}).data;
+  const header = rows[0] || [];
 
-  const M = buildColumnMap(rows[0]);
+  const M = buildColumnMap(header);
   if(M.pnImm === -1) throw new Error(`Couldn't find a "PN / IMM" column in the header row of "${sheetName}"`);
+  const missing = CRITICAL_FIELDS.filter(f => M[f] === -1);
   const DAY_COLS = [
     ["Lundi", M.lundi], ["Mardi", M.mardi], ["Mercredi", M.mercredi],
     ["Jeudi", M.jeudi], ["Vendredi", M.vendredi], ["Samedi", M.samedi], ["Dimanche", M.dimanche]
@@ -363,7 +374,7 @@ async function fetchWeek(sheetName){
       days, dayTotal
     });
   }
-  return out;
+  return { rows: out, header, colMap: M, missing };
 }
 
 function detectChanges(weekName, newRows){
@@ -389,15 +400,16 @@ async function loadAll(){
   setConn(true);
   clearInterval(countdownTimer);
   try{
-    const results = await Promise.all(WEEK_TABS.map(w => fetchWeek(w).then(rows => [w, rows])));
+    const results = await Promise.all(WEEK_TABS.map(w => fetchWeek(w).then(data => [w, data])));
     let allAlerts = [];
-    for(const [w, rows] of results) allAlerts = allAlerts.concat(detectChanges(w, rows));
+    for(const [w, data] of results) allAlerts = allAlerts.concat(detectChanges(w, data.rows));
     weeksData = Object.fromEntries(results);
     if(!currentWeek || !weeksData[currentWeek]) currentWeek = WEEK_TABS[WEEK_TABS.length - 1];
     populateWeekSelect();
-    populateGlobalFilterOptions(weeksData[currentWeek]);
+    populateGlobalFilterOptions(weeksData[currentWeek].rows);
     render();
     renderAlerts(allAlerts);
+    renderDebugPanel();
     setStatus("Updated " + new Date().toLocaleTimeString(), "ok");
     document.getElementById("lastUpdated").textContent = "updated " + new Date().toLocaleTimeString();
     setConn(true);
@@ -410,6 +422,32 @@ async function loadAll(){
   }
   startCountdown();
 }
+
+function renderDebugPanel(){
+  const data = weeksData[currentWeek];
+  if(!data) return;
+  const missingBanner = document.getElementById("missingBanner");
+  if(data.missing && data.missing.length){
+    missingBanner.style.display = "block";
+    missingBanner.textContent = `⚠ Couldn't find these columns in "${currentWeek}": ${data.missing.join(", ")} — those fields will show as "—"/0. Open "🔧 Data debug" below for details.`;
+  } else {
+    missingBanner.style.display = "none";
+  }
+  const body = document.getElementById("debugBody");
+  const rows = data.header.map((h, i) => {
+    const fieldsHere = Object.entries(data.colMap).filter(([,idx]) => idx === i).map(([f]) => f);
+    const tag = fieldsHere.length ? `→ <b style="color:#4ade80">${fieldsHere.join(", ")}</b>` : "";
+    return `<tr><td>${i}</td><td>${(h||"").toString().replace(/</g,"&lt;")||"<i>(empty)</i>"}</td><td>${tag}</td></tr>`;
+  }).join("");
+  const missingRows = (data.missing||[]).map(f => `<tr><td colspan="2" style="color:#f87171">${f}</td><td style="color:#f87171">not found</td></tr>`).join("");
+  body.innerHTML = `<table style="font-size:11px;"><thead><tr><th>#</th><th>Raw header text (${currentWeek})</th><th>Mapped to</th></tr></thead>
+    <tbody>${rows}${missingRows}</tbody></table>`;
+}
+document.getElementById("debugToggle").addEventListener("click", () => {
+  const el = document.getElementById("debugBody");
+  el.style.display = el.style.display === "none" ? "block" : "none";
+});
+
 
 function setStatus(msg, cls){ const el=document.getElementById("status"); el.textContent=msg; el.className=cls||""; }
 function setConn(ok){
@@ -486,8 +524,9 @@ document.getElementById("gClear").addEventListener("click", () => {
 
 /* ---------------- render ---------------- */
 function render(){
-  const raw = weeksData[currentWeek];
-  if(!raw) return;
+  const data = weeksData[currentWeek];
+  if(!data) return;
+  const raw = data.rows;
   const rows = applyGlobalFilters(raw);
   document.getElementById("fcount").textContent = `${rows.length} of ${raw.length} lines`;
 
@@ -670,8 +709,9 @@ function renderFullTable(rows){
 
 document.getElementById("weekSelect").addEventListener("change", e=>{
   currentWeek=e.target.value;
-  populateGlobalFilterOptions(weeksData[currentWeek]);
+  populateGlobalFilterOptions(weeksData[currentWeek].rows);
   render();
+  renderDebugPanel();
 });
 document.getElementById("refreshBtn").addEventListener("click", loadAll);
 document.querySelectorAll("#fullTable th[data-k]").forEach(th=>{
