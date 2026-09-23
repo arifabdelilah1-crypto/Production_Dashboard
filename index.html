@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Lear CS Production Dashboard — Molding &amp; Assy</title>
+<title>CI Production Dashboard — Molding &amp; Assy</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
@@ -91,7 +91,7 @@
 
 <div id="loginScreen">
   <div id="loginBox">
-    <h2>🔒 Lear CS Production Dashboard</h2>
+    <h2>🔒 CI Dashboard</h2>
     <p>Enter the access password to view live production data.</p>
     <input type="password" id="pwInput" placeholder="Password" autocomplete="current-password">
     <button class="primary" id="pwBtn">Unlock</button>
@@ -102,7 +102,7 @@
 <div id="app">
 <header>
   <div>
-    <h1>Lear CS Production Dashboard — Molding &amp; Assy</h1>
+    <h1>CI Production Dashboard — Molding &amp; Assy</h1>
     <div class="sub">
       <span id="connPill" class="pill live"><span class="dot"></span>live</span>
       <span id="lastUpdated">not loaded yet</span>
@@ -167,7 +167,7 @@
   </div>
 
   <div class="panel" style="margin-bottom:14px;">
-    <h2>Needs plant Attention <span class="panel-h">— open comments or non-Done/Canceled, sorted by priority</span></h2>
+    <h2>Needs CI Attention <span class="panel-h">— open comments or non-Done/Canceled, sorted by priority</span></h2>
     <div class="tablewrap">
       <table id="attnTable">
         <thead><tr><th>Area</th><th>Machine</th><th>PN / IMM</th><th>Project</th><th>Status</th><th>Prio</th><th>Attain%</th><th>Comment</th></tr></thead>
@@ -328,8 +328,10 @@ async function fetchWeek(sheetName){
   if(!res.ok) throw new Error(`HTTP ${res.status} loading "${sheetName}"`);
   const text = await res.text();
   if(text.trim().startsWith("<")) throw new Error(`"${sheetName}" tab not readable — check sharing settings`);
-  const rows = Papa.parse(text, {skipEmptyLines:false}).data;
+  const parsed = Papa.parse(text, {skipEmptyLines:false, delimiter:",", quoteChar:'"', escapeChar:'"'});
+  const rows = parsed.data;
   const header = rows[0] || [];
+  const rawSnippet = text.slice(0, 2500);
 
   const M = buildColumnMap(header);
   if(M.pnImm === -1) throw new Error(`Couldn't find a "PN / IMM" column in the header row of "${sheetName}"`);
@@ -374,7 +376,7 @@ async function fetchWeek(sheetName){
       days, dayTotal
     });
   }
-  return { rows: out, header, colMap: M, missing };
+  return { rows: out, header, colMap: M, missing, rawSnippet, parseErrors: parsed.errors, headerLen: header.length, totalRows: rows.length };
 }
 
 function detectChanges(weekName, newRows){
@@ -434,14 +436,29 @@ function renderDebugPanel(){
     missingBanner.style.display = "none";
   }
   const body = document.getElementById("debugBody");
+
+  const stats = `<div style="margin-bottom:10px;font-size:11.5px;color:#94a3b8;">
+    Parsed header length: <b style="color:${data.headerLen>50?'#f87171':'#e2e8f0'}">${data.headerLen}</b> columns
+    (expected ~44) · Total parsed rows: <b>${data.totalRows}</b> ·
+    PapaParse errors: <b style="color:${data.parseErrors.length?'#f87171':'#4ade80'}">${data.parseErrors.length}</b>
+    ${data.parseErrors.length ? "<br>" + data.parseErrors.slice(0,5).map(e=>`row ${e.row}: ${e.message}`).join("<br>") : ""}
+  </div>`;
+
+  const rawBlock = `<div style="margin-bottom:10px;">
+    <div style="font-size:11.5px;color:#94a3b8;margin-bottom:4px;">Raw CSV text — first 2500 characters, exactly as fetched (this is the key one to screenshot):</div>
+    <pre style="white-space:pre-wrap;word-break:break-all;background:#0f172a;border:1px solid #2d3b52;border-radius:6px;padding:8px;font-size:10.5px;max-height:220px;overflow:auto;">${(data.rawSnippet||"").replace(/</g,"&lt;")}</pre>
+  </div>`;
+
   const rows = data.header.map((h, i) => {
     const fieldsHere = Object.entries(data.colMap).filter(([,idx]) => idx === i).map(([f]) => f);
     const tag = fieldsHere.length ? `→ <b style="color:#4ade80">${fieldsHere.join(", ")}</b>` : "";
     return `<tr><td>${i}</td><td>${(h||"").toString().replace(/</g,"&lt;")||"<i>(empty)</i>"}</td><td>${tag}</td></tr>`;
   }).join("");
   const missingRows = (data.missing||[]).map(f => `<tr><td colspan="2" style="color:#f87171">${f}</td><td style="color:#f87171">not found</td></tr>`).join("");
-  body.innerHTML = `<table style="font-size:11px;"><thead><tr><th>#</th><th>Raw header text (${currentWeek})</th><th>Mapped to</th></tr></thead>
+  const table = `<table style="font-size:11px;"><thead><tr><th>#</th><th>Raw header text (${currentWeek})</th><th>Mapped to</th></tr></thead>
     <tbody>${rows}${missingRows}</tbody></table>`;
+
+  body.innerHTML = stats + rawBlock + table;
 }
 document.getElementById("debugToggle").addEventListener("click", () => {
   const el = document.getElementById("debugBody");
