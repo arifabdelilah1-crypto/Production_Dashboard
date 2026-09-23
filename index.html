@@ -46,6 +46,12 @@
   .alertsPanel .row{display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px solid #5c1a1a;color:#fecaca;}
   .alertsPanel .row:last-child{border-bottom:none;}
 
+  .filterBar{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .filterBar input[type=text]{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;font-size:13px;min-width:170px;flex:1 1 170px;}
+  .filterBar select{flex:1 1 130px;min-width:110px;}
+  .filterBar .fcount{font-size:11.5px;color:var(--muted);white-space:nowrap;margin-left:auto;}
+  @media(max-width:700px){.filterBar{flex-direction:column;align-items:stretch;}.filterBar select,.filterBar input,.filterBar button{width:100%;flex:none;}.filterBar .fcount{margin-left:0;text-align:center;}}
+
   .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:18px;}
   .kpi{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:13px 15px;}
   .kpi .label{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
@@ -77,10 +83,8 @@
   .b-canceled{background:#3f2d1e;color:#fb923c;}
   .b-unfinished{background:#422006;color:#fbbf24;}
   .b-notstarted{background:#312e81;color:#a5b4fc;}
-  .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
-  input[type=text]{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;font-size:13px;min-width:160px;flex:1;}
   .attn{font-size:11.5px;color:var(--orange);white-space:normal;}
-  @media(max-width:600px){.filters input,.filters select{width:100%;flex:none;}}
+  .tablecap{font-size:11.5px;color:var(--muted);margin-bottom:8px;}
 </style>
 </head>
 <body>
@@ -117,11 +121,22 @@
   <div class="banner" id="banner" style="display:none;"></div>
   <div class="alertsPanel" id="alertsPanel"><h3>⚠ New since last refresh</h3><div id="alertsList"></div></div>
 
+  <div class="filterBar">
+    <input type="text" id="gSearch" placeholder="Search PN / Project / Machine...">
+    <select id="gArea"><option value="">All Areas</option></select>
+    <select id="gMachine"><option value="">All Machines</option></select>
+    <select id="gMachineType"><option value="">All Machine Types</option></select>
+    <select id="gStatus"><option value="">All Statuses</option></select>
+    <select id="gPrio"><option value="">All Prio</option></select>
+    <button class="ghost" id="gClear">Clear filters</button>
+    <span class="fcount" id="fcount"></span>
+  </div>
+
   <div class="kpis" id="kpis"></div>
 
   <div class="grid2">
     <div class="panel">
-      <h2>Daily Output vs Combined Objective <span class="panel-h">— by area</span></h2>
+      <h2>Daily Output vs Combined Objective <span class="panel-h">— by area, filtered set</span></h2>
       <canvas id="dailyChart"></canvas>
     </div>
     <div class="panel">
@@ -149,7 +164,7 @@
     <h2>Needs CI Attention <span class="panel-h">— open comments or non-Done/Canceled, sorted by priority</span></h2>
     <div class="tablewrap">
       <table id="attnTable">
-        <thead><tr><th>Area</th><th>PN / IMM</th><th>Project</th><th>Status</th><th>Prio</th><th>Attain%</th><th>Comment</th></tr></thead>
+        <thead><tr><th>Area</th><th>Machine</th><th>PN / IMM</th><th>Project</th><th>Status</th><th>Prio</th><th>Attain%</th><th>Comment</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -157,16 +172,11 @@
 
   <div class="panel">
     <h2>Full Line Table</h2>
-    <div class="filters">
-      <input type="text" id="searchBox" placeholder="Search PN / Project / IMM...">
-      <select id="areaFilter"><option value="">All Areas</option></select>
-      <select id="statusFilter"><option value="">All Statuses</option></select>
-      <select id="prioFilter"><option value="">All Prio</option></select>
-    </div>
+    <div class="tablecap" id="tablecap"></div>
     <div class="tablewrap">
       <table id="fullTable">
         <thead><tr>
-          <th data-k="area">Area</th><th data-k="pn">PN / IMM</th><th data-k="project">Project</th>
+          <th data-k="area">Area</th><th data-k="machine">Machine</th><th data-k="pn">PN / IMM</th><th data-k="project">Project</th>
           <th data-k="status">Status</th><th data-k="prio">Prio</th><th data-k="attain">Attain%</th>
           <th data-k="planned">Planned</th><th data-k="produced">Produced</th><th data-k="remaining">Remaining</th>
           <th data-k="ct">CT(s)</th><th data-k="dailyObj">Daily Obj</th><th data-k="oee">OEE</th><th data-k="comment">Comment</th>
@@ -185,26 +195,10 @@ const WEEK_TABS = ["Wk38", "Wk39"];
 const AUTO_REFRESH_MS = 5 * 60 * 1000;
 
 // SHA-256 hash of the access password. Default password: lear2026 — CHANGE THIS.
-// To generate a new hash: open any browser console and run
-//   crypto.subtle.digest('SHA-256', new TextEncoder().encode('yourNewPassword'))
-//     .then(b => console.log([...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')))
 const PASSWORD_HASH = "e2553f7162f15417c9a52ee1e4465bac12bcda0a2354dd92e911f2e5df1104e4";
-
-const COL = {
-  area: 0, pnImm: 1, opFixe: 2, col23: 3, urg: 4, project: 5, serial: 6,
-  status: 7, prio: 8, comment: 9, attain: 10, remainDays: 11, gap: 12,
-  plannedQty: 13, producedQty: 14, remainingQty: 15, learPN: 16, imm: 17,
-  pu: 18, moldId: 19, toolCav: 20, ct: 21, planningRaw: 22, nberPlt: 23,
-  material: 24, dailyObj: 25, oee: 26, anticipation: 27,
-  lundi: 28, mardi: 29, mercredi: 30, jeudi: 31, vendredi: 32, samedi: 33, dimanche: 34
-};
-const DAY_COLS = [
-  ["Lundi", COL.lundi], ["Mardi", COL.mardi], ["Mercredi", COL.mercredi],
-  ["Jeudi", COL.jeudi], ["Vendredi", COL.vendredi], ["Samedi", COL.samedi], ["Dimanche", COL.dimanche]
-];
 /* ======================================================= */
 
-let weeksData = {};
+let weeksData = {};          // { weekName: rows[] }  (raw, unfiltered)
 let prevRowsByWeek = {};
 let currentWeek = null;
 let charts = {};
@@ -212,6 +206,7 @@ let sortState = { key: null, dir: 1 };
 let countdownTimer = null;
 let nextRefreshAt = 0;
 
+/* ---------------- login ---------------- */
 async function sha256(str){
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
   return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2,"0")).join("");
@@ -240,6 +235,42 @@ document.getElementById("logoutBtn").addEventListener("click", () => {
 });
 if(sessionStorage.getItem("ci_dash_auth") === "1") showApp();
 
+/* ---------------- dynamic header-based column mapping ---------------- */
+function normHeader(s){ return (s||"").toString().toLowerCase().replace(/\s+/g," ").trim(); }
+function findColIndex(H, needles){
+  for(const n of needles){
+    const i = H.findIndex(h => h.includes(n));
+    if(i !== -1) return i;
+  }
+  return -1;
+}
+function buildColumnMap(headerRow){
+  const H = (headerRow || []).map(normHeader);
+  return {
+    area: findColIndex(H, ["area"]),
+    pnImm: findColIndex(H, ["pn / imm", "pn/imm", "pn imm"]),
+    project: findColIndex(H, ["project"]),
+    status: findColIndex(H, ["status"]),
+    prio: findColIndex(H, ["prio"]),
+    comment: findColIndex(H, ["comment"]),
+    attain: findColIndex(H, ["attain"]),
+    plannedQty: findColIndex(H, ["planned quan"]),
+    producedQty: findColIndex(H, ["cummul"]),
+    remainingQty: findColIndex(H, ["remaining quan"]),
+    ct: findColIndex(H, ["ct (s)", "ct(s)", "ct (s)"]),
+    dailyObj: findColIndex(H, ["daily objectif", "daily obj"]),
+    oee: findColIndex(H, ["%oee", "oee"]),
+    lundi: findColIndex(H, ["lundi"]),
+    mardi: findColIndex(H, ["mardi"]),
+    mercredi: findColIndex(H, ["mercredi"]),
+    jeudi: findColIndex(H, ["jeudi"]),
+    vendredi: findColIndex(H, ["vendredi"]),
+    samedi: findColIndex(H, ["samedi"]),
+    dimanche: findColIndex(H, ["dimanche"]),
+  };
+}
+
+/* ---------------- parsing helpers ---------------- */
 function csvUrl(sheetName){
   return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
 }
@@ -253,6 +284,13 @@ function parseNum(v){
   const n = parseFloat(s);
   return isNaN(n) ? null : n;
 }
+// A line "has started" once it's Done, Ongoing, Stopped, Unfinished or Canceled —
+// i.e. anything except Planned / Not started, which haven't produced anything yet
+// and shouldn't count against attainment or OEE.
+function hasStarted(status){
+  const s = (status || "").toLowerCase().replace(/\s+/g,"");
+  return s !== "planned" && s !== "notstarted" && s !== "—";
+}
 function statusClass(status){
   const s = (status || "").toLowerCase().replace(/\s+/g,"");
   if(s === "done") return "b-done";
@@ -264,6 +302,17 @@ function statusClass(status){
   if(s === "notstarted") return "b-notstarted";
   return "b-planned";
 }
+function parseMachine(pn){
+  const idx = pn.lastIndexOf(" - ");
+  return idx === -1 ? "" : pn.slice(idx + 3).trim();
+}
+function machineTypeOf(machine){
+  if(!machine) return "Other";
+  if(/^assy/i.test(machine)) return "Assy";
+  const m = machine.match(/^imm\s*([0-9])/i);
+  if(m) return m[1] + "0x";
+  return "Other";
+}
 
 async function fetchWeek(sheetName){
   const res = await fetch(csvUrl(sheetName), {cache:"no-store"});
@@ -272,15 +321,23 @@ async function fetchWeek(sheetName){
   if(text.trim().startsWith("<")) throw new Error(`"${sheetName}" tab not readable — check sharing settings`);
   const rows = Papa.parse(text, {skipEmptyLines:false}).data;
 
+  const M = buildColumnMap(rows[0]);
+  if(M.pnImm === -1) throw new Error(`Couldn't find a "PN / IMM" column in the header row of "${sheetName}"`);
+  const DAY_COLS = [
+    ["Lundi", M.lundi], ["Mardi", M.mardi], ["Mercredi", M.mercredi],
+    ["Jeudi", M.jeudi], ["Vendredi", M.vendredi], ["Samedi", M.samedi], ["Dimanche", M.dimanche]
+  ].filter(([, idx]) => idx !== -1);
+
   const out = [];
   let lastArea = "";
   for(let i = 1; i < rows.length; i++){
     const r = rows[i];
     if(!r || r.length < 2) continue;
-    const pn = (r[COL.pnImm] || "").trim();
+    const pn = (r[M.pnImm] || "").trim();
     if(!pn) continue;
-    const area = (r[COL.area] || "").trim();
+    const area = M.area !== -1 ? (r[M.area] || "").trim() : "";
     if(area) lastArea = area;
+    const machine = parseMachine(pn);
 
     const days = {};
     let dayTotal = 0;
@@ -291,30 +348,22 @@ async function fetchWeek(sheetName){
     }
 
     out.push({
-      area: lastArea || "—", pn,
-      project: (r[COL.project] || "").trim(),
-      status: (r[COL.status] || "").trim() || "—",
-      prio: r[COL.prio] || "",
-      comment: (r[COL.comment] || "").trim(),
-      attain: parseNum(r[COL.attain]),
-      planned: parseNum(r[COL.plannedQty]),
-      produced: parseNum(r[COL.producedQty]),
-      remaining: parseNum(r[COL.remainingQty]),
-      ct: parseNum(r[COL.ct]),
-      dailyObj: parseNum(r[COL.dailyObj]),
-      oee: parseNum(r[COL.oee]),
+      area: lastArea || "—", pn, machine, machineType: machineTypeOf(machine),
+      project: M.project !== -1 ? (r[M.project] || "").trim() : "",
+      status: M.status !== -1 ? ((r[M.status] || "").trim() || "—") : "—",
+      prio: M.prio !== -1 ? (r[M.prio] || "") : "",
+      comment: M.comment !== -1 ? (r[M.comment] || "").trim() : "",
+      attain: M.attain !== -1 ? parseNum(r[M.attain]) : null,
+      planned: M.plannedQty !== -1 ? parseNum(r[M.plannedQty]) : null,
+      produced: M.producedQty !== -1 ? parseNum(r[M.producedQty]) : null,
+      remaining: M.remainingQty !== -1 ? parseNum(r[M.remainingQty]) : null,
+      ct: M.ct !== -1 ? parseNum(r[M.ct]) : null,
+      dailyObj: M.dailyObj !== -1 ? parseNum(r[M.dailyObj]) : null,
+      oee: M.oee !== -1 ? parseNum(r[M.oee]) : null,
       days, dayTotal
     });
   }
-
-  const dailyByArea = {};
-  let dailyObjTotal = 0;
-  for(const row of out){
-    if(!dailyByArea[row.area]) dailyByArea[row.area] = Object.fromEntries(DAY_COLS.map(d => [d[0], 0]));
-    for(const [label] of DAY_COLS) if(row.days[label]) dailyByArea[row.area][label] += row.days[label];
-    if(row.dailyObj) dailyObjTotal += row.dailyObj;
-  }
-  return { rows: out, dailyByArea, dailyObjTotal };
+  return out;
 }
 
 function detectChanges(weekName, newRows){
@@ -326,7 +375,7 @@ function detectChanges(weekName, newRows){
       const old = prevMap[r.pn];
       if(old && old.status !== r.status){
         const bad = ["stopped","canceled","cancelled"].includes((r.status||"").toLowerCase());
-        alerts.push({pn:r.pn, project:r.project, from:old.status, to:r.status, bad});
+        alerts.push({pn:r.pn, project:r.project, from:old.status, to:r.status, bad, week:weekName});
       }
     }
   }
@@ -334,17 +383,19 @@ function detectChanges(weekName, newRows){
   return alerts;
 }
 
+/* ---------------- load / render pipeline ---------------- */
 async function loadAll(){
   setStatus("Loading…", "");
   setConn(true);
   clearInterval(countdownTimer);
   try{
-    const results = await Promise.all(WEEK_TABS.map(w => fetchWeek(w).then(d => [w, d])));
-    const allAlerts = [];
-    for(const [w, d] of results) allAlerts.push(...detectChanges(w, d.rows).map(a => ({...a, week:w})));
+    const results = await Promise.all(WEEK_TABS.map(w => fetchWeek(w).then(rows => [w, rows])));
+    let allAlerts = [];
+    for(const [w, rows] of results) allAlerts = allAlerts.concat(detectChanges(w, rows));
     weeksData = Object.fromEntries(results);
     if(!currentWeek || !weeksData[currentWeek]) currentWeek = WEEK_TABS[WEEK_TABS.length - 1];
     populateWeekSelect();
+    populateGlobalFilterOptions(weeksData[currentWeek]);
     render();
     renderAlerts(allAlerts);
     setStatus("Updated " + new Date().toLocaleTimeString(), "ok");
@@ -391,14 +442,59 @@ function populateWeekSelect(){
   sel.value = WEEK_TABS.includes(cur) ? cur : currentWeek;
 }
 
+/* ---------------- global filter bar ---------------- */
+function populateGlobalFilterOptions(rows){
+  const fill = (id, values, label) => {
+    const sel = document.getElementById(id);
+    const cur = sel.value;
+    sel.innerHTML = `<option value="">${label}</option>` + values.map(v => `<option value="${v}">${v}</option>`).join("");
+    sel.value = values.includes(cur) ? cur : "";
+  };
+  fill("gArea", [...new Set(rows.map(r=>r.area))].sort(), "All Areas");
+  fill("gMachine", [...new Set(rows.map(r=>r.machine).filter(Boolean))].sort(), "All Machines");
+  const typeOrder = ["10x","30x","50x","Assy","Other"];
+  fill("gMachineType", [...new Set(rows.map(r=>r.machineType))].sort((a,b)=>typeOrder.indexOf(a)-typeOrder.indexOf(b)), "All Machine Types");
+  fill("gStatus", [...new Set(rows.map(r=>r.status))].sort(), "All Statuses");
+  fill("gPrio", [...new Set(rows.map(r=>r.prio).filter(p=>p!==""))].sort((a,b)=>a-b), "All Prio");
+}
+function applyGlobalFilters(rows){
+  const q = document.getElementById("gSearch").value.toLowerCase();
+  const area = document.getElementById("gArea").value;
+  const machine = document.getElementById("gMachine").value;
+  const mtype = document.getElementById("gMachineType").value;
+  const status = document.getElementById("gStatus").value;
+  const prio = document.getElementById("gPrio").value;
+  return rows.filter(r => {
+    if(area && r.area !== area) return false;
+    if(machine && r.machine !== machine) return false;
+    if(mtype && r.machineType !== mtype) return false;
+    if(status && r.status !== status) return false;
+    if(prio && String(r.prio) !== prio) return false;
+    if(q && !(r.pn.toLowerCase().includes(q) || r.project.toLowerCase().includes(q) || r.machine.toLowerCase().includes(q))) return false;
+    return true;
+  });
+}
+["gSearch","gArea","gMachine","gMachineType","gStatus","gPrio"].forEach(id => {
+  const el = document.getElementById(id);
+  el.addEventListener(el.tagName === "SELECT" ? "change" : "input", render);
+});
+document.getElementById("gClear").addEventListener("click", () => {
+  document.getElementById("gSearch").value = "";
+  ["gArea","gMachine","gMachineType","gStatus","gPrio"].forEach(id => document.getElementById(id).value = "");
+  render();
+});
+
+/* ---------------- render ---------------- */
 function render(){
-  const wk = weeksData[currentWeek];
-  if(!wk) return;
-  const rows = wk.rows;
-  const hasAnyStatus = rows.some(r => r.status && r.status !== "—");
+  const raw = weeksData[currentWeek];
+  if(!raw) return;
+  const rows = applyGlobalFilters(raw);
+  document.getElementById("fcount").textContent = `${rows.length} of ${raw.length} lines`;
+
+  const hasAnyStatus = raw.some(r => r.status && r.status !== "—");
 
   renderKPIs(rows);
-  renderDailyChart(wk);
+  renderDailyChart(rows);
   renderStatusChart(rows);
   renderAreaChart(rows);
   renderWorstChart(rows);
@@ -415,10 +511,22 @@ function renderKPIs(rows){
   const planned = rows.reduce((s,r)=>s+(r.planned||0),0);
   const produced = rows.reduce((s,r)=>s+(r.produced||0),0);
   const remaining = rows.reduce((s,r)=>s+(r.remaining||0),0);
-  const overallAttain = planned>0 ? (produced/planned*100) : 0;
-  const behind80 = rows.filter(r=>r.attain!==null && r.attain<80 && !["done","canceled","cancelled"].includes((r.status||"").toLowerCase())).length;
+
+  // Attainment: Planned / Not-started lines haven't produced anything yet, so they
+  // shouldn't count against the ratio — only lines that have actually started.
+  const started = rows.filter(r => hasStarted(r.status));
+  const startedPlanned = started.reduce((s,r)=>s+(r.planned||0),0);
+  const startedProduced = started.reduce((s,r)=>s+(r.produced||0),0);
+  const overallAttain = startedPlanned>0 ? (startedProduced/startedPlanned*100) : 0;
+
+  const behind80 = started.filter(r=>r.attain!==null && r.attain<80 && !["done","canceled","cancelled"].includes((r.status||"").toLowerCase())).length;
   const stoppedCanceled = rows.filter(r=>["stopped","canceled","cancelled"].includes((r.status||"").toLowerCase())).length;
-  const oeeVals = rows.map(r=>r.oee).filter(v=>v!==null);
+
+  // OEE: only from started lines, and sanity-capped — a stray data-entry error
+  // (e.g. a raw piece count typed into the %OEE cell) shouldn't be able to send
+  // the average into the thousands. Anything outside 0-150% is treated as bad data.
+  const oeeVals = started.map(r=>r.oee).filter(v=>v!==null && v>=0 && v<=150);
+  const oeeExcluded = started.filter(r=>r.oee!==null && (r.oee<0 || r.oee>150)).length;
   const avgOee = oeeVals.length ? oeeVals.reduce((a,b)=>a+b,0)/oeeVals.length : null;
 
   const kpis = [
@@ -426,10 +534,10 @@ function renderKPIs(rows){
     ["Planned Qty (k)", planned.toFixed(1), ""],
     ["Produced Qty (k)", produced.toFixed(1), ""],
     ["Remaining Qty (k)", remaining.toFixed(1), ""],
-    ["Avg OEE", avgOee!==null ? avgOee.toFixed(0)+"%" : "—", avgOee>=85?"good":avgOee>=70?"warn":"bad"],
+    ["Avg OEE" + (oeeExcluded ? ` (${oeeExcluded} excl.)` : ""), avgOee!==null ? avgOee.toFixed(0)+"%" : "—", avgOee>=85?"good":avgOee>=70?"warn":"bad"],
     ["Lines Behind 80%", behind80, behind80>0?"warn":"good"],
     ["Stopped / Canceled", stoppedCanceled, stoppedCanceled>0?"bad":"good"],
-    ["Total Lines", rows.length, ""],
+    ["Lines Shown", rows.length, ""],
   ];
   document.getElementById("kpis").innerHTML = kpis.map(([label,value,cls]) =>
     `<div class="kpi"><div class="label">${label}</div><div class="value ${cls}">${value}</div></div>`).join("");
@@ -440,20 +548,36 @@ const CHART_OPTS_BASE = {responsive:true, maintainAspectRatio:false,
   plugins:{legend:{labels:{color:"#e2e8f0",boxWidth:12,font:{size:11}}}},
   scales:{x:{ticks:{color:"#94a3b8",font:{size:10}},grid:{color:"#2d3b52"}}, y:{ticks:{color:"#94a3b8",font:{size:10}},grid:{color:"#2d3b52"}}}};
 
-function renderDailyChart(wk){
+function renderDailyChart(rows){
   destroyChart("daily");
-  const labels = DAY_COLS.map(d=>d[0]);
-  const areas = Object.keys(wk.dailyByArea);
+  const dayLabels = ["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi","Dimanche"];
+  // A single-line daily objective above this is almost certainly a bad cell
+  // (wrong column, stray text parsed as a number, etc.) rather than a real target —
+  // exclude it from the sum instead of letting it dominate the chart.
+  const SANE_DAILY_OBJ_MAX = 100000;
+  const dailyByArea = {};
+  let dailyObjTotal = 0, dailyObjExcluded = 0;
+  for(const r of rows){
+    if(!dailyByArea[r.area]) dailyByArea[r.area] = Object.fromEntries(dayLabels.map(l=>[l,0]));
+    for(const l of dayLabels) if(r.days[l]) dailyByArea[r.area][l] += r.days[l];
+    if(r.dailyObj){
+      if(r.dailyObj <= SANE_DAILY_OBJ_MAX) dailyObjTotal += r.dailyObj;
+      else dailyObjExcluded++;
+    }
+  }
+  const areas = Object.keys(dailyByArea);
   const palette = ["#38bdf8","#a78bfa","#34d399","#f472b6"];
   const datasets = areas.map((a,i) => ({
     type:"bar", label:a, stack:"prod",
-    data: labels.map(l => Math.round(wk.dailyByArea[a][l]||0)),
+    data: dayLabels.map(l => Math.round(dailyByArea[a][l]||0)),
     backgroundColor: palette[i % palette.length], borderRadius:3
   }));
-  datasets.push({type:"line", label:"Combined Objective", data:labels.map(()=>Math.round(wk.dailyObjTotal||0)),
+  datasets.push({type:"line",
+    label: "Combined Objective" + (dailyObjExcluded ? ` (${dailyObjExcluded} line${dailyObjExcluded===1?"":"s"} excl. — bad data)` : ""),
+    data:dayLabels.map(()=>Math.round(dailyObjTotal)),
     borderColor:"#f59e0b", borderWidth:2, pointRadius:0, tension:0.2});
   charts.daily = new Chart(document.getElementById("dailyChart"), {
-    data:{labels, datasets},
+    data:{labels:dayLabels, datasets},
     options:{...CHART_OPTS_BASE, scales:{...CHART_OPTS_BASE.scales, x:{...CHART_OPTS_BASE.scales.x, stacked:true}, y:{...CHART_OPTS_BASE.scales.y, stacked:true}}}
   });
 }
@@ -475,7 +599,7 @@ function renderStatusChart(rows){
 function renderAreaChart(rows){
   destroyChart("area");
   const byArea = {};
-  for(const r of rows){
+  for(const r of rows.filter(r => hasStarted(r.status))){
     if(!byArea[r.area]) byArea[r.area]={planned:0,produced:0};
     byArea[r.area].planned += r.planned||0; byArea[r.area].produced += r.produced||0;
   }
@@ -490,7 +614,7 @@ function renderAreaChart(rows){
 
 function renderWorstChart(rows){
   destroyChart("worst");
-  const active = rows.filter(r=>r.attain!==null && !["done","canceled","cancelled"].includes((r.status||"").toLowerCase()));
+  const active = rows.filter(r=>r.attain!==null && hasStarted(r.status) && !["done","canceled","cancelled"].includes((r.status||"").toLowerCase()));
   const worst = [...active].sort((a,b)=>a.attain-b.attain).slice(0,10);
   charts.worst = new Chart(document.getElementById("worstChart"), {
     type:"bar",
@@ -518,48 +642,25 @@ function renderAttentionTable(rows){
     return r.comment || (s && s!=="done" && s!=="canceled" && s!=="cancelled" && s!=="—");
   }).sort((a,b)=>(parseNum(a.prio)??99)-(parseNum(b.prio)??99));
   document.querySelector("#attnTable tbody").innerHTML = attn.map(r=>`<tr>
-    <td>${r.area}</td><td>${r.pn}</td><td>${r.project}</td>
+    <td>${r.area}</td><td>${r.machine}</td><td>${r.pn}</td><td>${r.project}</td>
     <td><span class="badge ${statusClass(r.status)}">${r.status}</span></td>
     <td>${r.prio}</td><td>${r.attain!==null?r.attain.toFixed(0)+"%":"—"}</td>
-    <td class="attn">${r.comment}</td></tr>`).join("") || `<tr><td colspan="7" style="color:var(--muted)">Nothing flagged.</td></tr>`;
+    <td class="attn">${r.comment}</td></tr>`).join("") || `<tr><td colspan="8" style="color:var(--muted)">Nothing flagged.</td></tr>`;
 }
 
-let fullRowsCache = [];
 function renderFullTable(rows){
-  fullRowsCache = rows;
-  populateFilterOptions(rows);
-  applyFiltersAndRender();
-}
-function populateFilterOptions(rows){
-  const fill=(id,values,label)=>{
-    const sel=document.getElementById(id); const cur=sel.value;
-    sel.innerHTML = `<option value="">${label}</option>` + values.map(v=>`<option value="${v}">${v}</option>`).join("");
-    sel.value = cur;
-  };
-  fill("areaFilter",[...new Set(rows.map(r=>r.area))].sort(),"All Areas");
-  fill("statusFilter",[...new Set(rows.map(r=>r.status))].sort(),"All Statuses");
-  fill("prioFilter",[...new Set(rows.map(r=>r.prio).filter(p=>p!==""))].sort((a,b)=>a-b),"All Prio");
-}
-function applyFiltersAndRender(){
-  const q=document.getElementById("searchBox").value.toLowerCase();
-  const area=document.getElementById("areaFilter").value, status=document.getElementById("statusFilter").value, prio=document.getElementById("prioFilter").value;
-  let rows = fullRowsCache.filter(r=>{
-    if(area && r.area!==area) return false;
-    if(status && r.status!==status) return false;
-    if(prio && String(r.prio)!==prio) return false;
-    if(q && !(r.pn.toLowerCase().includes(q)||r.project.toLowerCase().includes(q))) return false;
-    return true;
-  });
+  document.getElementById("tablecap").textContent = `Showing ${rows.length} line${rows.length===1?"":"s"}`;
+  let sorted = rows;
   if(sortState.key){
-    rows=[...rows].sort((a,b)=>{
+    sorted = [...rows].sort((a,b)=>{
       let va=a[sortState.key], vb=b[sortState.key];
       if(typeof va==="string") va=va.toLowerCase(); if(typeof vb==="string") vb=vb.toLowerCase();
       if(va===null||va===undefined) va=-Infinity; if(vb===null||vb===undefined) vb=-Infinity;
       return va>vb?sortState.dir:va<vb?-sortState.dir:0;
     });
   }
-  document.querySelector("#fullTable tbody").innerHTML = rows.map(r=>`<tr>
-    <td>${r.area}</td><td>${r.pn}</td><td>${r.project}</td>
+  document.querySelector("#fullTable tbody").innerHTML = sorted.map(r=>`<tr>
+    <td>${r.area}</td><td>${r.machine}</td><td>${r.pn}</td><td>${r.project}</td>
     <td><span class="badge ${statusClass(r.status)}">${r.status}</span></td>
     <td>${r.prio}</td><td>${r.attain!==null?r.attain.toFixed(0)+"%":"—"}</td>
     <td>${r.planned??"—"}</td><td>${r.produced??"—"}</td><td>${r.remaining??"—"}</td>
@@ -567,18 +668,18 @@ function applyFiltersAndRender(){
     <td>${r.comment}</td></tr>`).join("");
 }
 
-document.getElementById("weekSelect").addEventListener("change", e=>{currentWeek=e.target.value; render();});
+document.getElementById("weekSelect").addEventListener("change", e=>{
+  currentWeek=e.target.value;
+  populateGlobalFilterOptions(weeksData[currentWeek]);
+  render();
+});
 document.getElementById("refreshBtn").addEventListener("click", loadAll);
-document.getElementById("searchBox").addEventListener("input", applyFiltersAndRender);
-document.getElementById("areaFilter").addEventListener("change", applyFiltersAndRender);
-document.getElementById("statusFilter").addEventListener("change", applyFiltersAndRender);
-document.getElementById("prioFilter").addEventListener("change", applyFiltersAndRender);
 document.querySelectorAll("#fullTable th[data-k]").forEach(th=>{
   th.addEventListener("click", ()=>{
     const k=th.dataset.k;
     sortState.dir = (sortState.key===k) ? -sortState.dir : 1;
     sortState.key = k;
-    applyFiltersAndRender();
+    render();
   });
 });
 </script>
